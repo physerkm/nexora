@@ -1,0 +1,74 @@
+# docker compose up --build            -> PostgreSQL + migrator + API + web
+# docker compose --profile cache up    -> additionally starts Redis (set REDIS_CONNECTION=redis:6379)
+name: nexora
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: nexora
+      POSTGRES_USER: nexora
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-nexora}
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U nexora -d nexora"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  redis:
+    image: redis:7-alpine
+    profiles: ["cache"]
+    command: ["redis-server", "--save", "", "--appendonly", "no"]
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  # Applies EF Core migrations + reference data, then exits. The API only starts after it succeeded.
+  migrator:
+    build:
+      context: .
+      dockerfile: src/Nexora.Api/Dockerfile
+    image: nexora-api:local
+    command: ["--migrate"]
+    environment: &api-env
+      ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT:-Production}
+      ConnectionStrings__Default: Host=postgres;Port=5432;Database=nexora;Username=nexora;Password=${POSTGRES_PASSWORD:-nexora}
+      Jwt__SigningKey: ${JWT_SIGNING_KEY:?Set JWT_SIGNING_KEY (at least 32 characters) in .env}
+      Redis__ConnectionString: ${REDIS_CONNECTION:-}
+      Bootstrap__PlatformAdminEmail: ${PLATFORM_ADMIN_EMAIL:-admin@nexora.io}
+      Bootstrap__PlatformAdminPassword: ${PLATFORM_ADMIN_PASSWORD:-Nexora#2026}
+      Seed__DemoData: ${SEED_DEMO_DATA:-true}
+      Database__InitializeOnStartup: "false"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  api:
+    image: nexora-api:local
+    environment:
+      <<: *api-env
+      Database__InitializeOnStartup: "false"
+    ports:
+      - "8080:8080"
+    depends_on:
+      migrator:
+        condition: service_completed_successfully
+    restart: unless-stopped
+
+  web:
+    build: ./frontend
+    ports:
+      - "3000:80"
+    depends_on:
+      - api
+
+volumes:
+  pgdata:
