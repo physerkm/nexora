@@ -4,7 +4,7 @@ name: nexora
 
 services:
   postgres:
-    image: postgres:17-alpine
+    image: postgres:18-alpine
     environment:
       POSTGRES_DB: nexora
       POSTGRES_USER: nexora
@@ -12,7 +12,9 @@ services:
     ports:
       - "5432:5432"
     volumes:
-      - pgdata:/var/lib/postgresql/data
+      # PostgreSQL 18+ images keep data in a version-specific subfolder (/var/lib/postgresql/18/docker),
+      # so the volume is mounted one level up. A volume created by a 17 image is not compatible.
+      - pgdata:/var/lib/postgresql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U nexora -d nexora"]
       interval: 5s

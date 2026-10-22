@@ -9,7 +9,7 @@
 | Katman | Teknoloji |
 |---|---|
 | Backend | ASP.NET Core 10 Minimal API, C# |
-| Veritabanı | PostgreSQL 17 + EF Core 10 (Npgsql, snake_case) |
+| Veritabanı | PostgreSQL 18 + EF Core 10 (Npgsql, snake_case) |
 | Kimlik doğrulama | ASP.NET Core Identity (PBKDF2) + JWT + dönen refresh token |
 | Validasyon | FluentValidation, endpoint filter ile |
 | Cache | HybridCache (bellek L1, isteğe bağlı Redis L2) |
@@ -23,33 +23,57 @@
 
 ## Hızlı başlangıç
 
-### Docker Compose ile (önerilen)
+### Yerel çalıştırma (Docker gerekmez)
 
-```bash
-cp .env.example .env            # JWT_SIGNING_KEY'i değiştirin
-docker compose up --build
+Gereksinimler: .NET 10 SDK, Node.js 20.19+ ve PostgreSQL 18.
+
+**1. PostgreSQL 18'i kurun.**
+
+```powershell
+winget install PostgreSQL.PostgreSQL.18     # ya da https://www.postgresql.org/download/
+```
+
+> **Türkçe Windows'ta dikkat:** Kurulumun **Locale** ekranında `[Default locale]` yerine **English, United States** seçin.
+> Windows 11 bölge ayarının adı `Turkish_Türkiye.1254` olduğundan varsayılan seçimle kurulum şu hatayla durur:
+> *"The database cluster initialisation failed"* (logda: `locale name "Turkish_Türkiye.1254" contains non-ASCII characters`).
+> Bu durumda PostgreSQL'i kaldırıp doğru locale ile yeniden kurun.
+
+**2. Uygulamanın kullanıcısını ve veritabanını oluşturun.**
+
+```powershell
+& "C:\Program Files\PostgreSQL\18\bin\psql.exe" -U postgres -c "CREATE ROLE nexora LOGIN PASSWORD 'nexora';" -c "CREATE DATABASE nexora OWNER nexora;"
+```
+
+Bu bilgiler yalnızca geliştirme içindir ve `appsettings.Development.json` ile eşleşir.
+
+**3. API'yi başlatın.** Development ortamında migration'lar ve demo veri otomatik yüklenir.
+
+```powershell
+dotnet run --project src/Nexora.Api --urls http://localhost:5080
+```
+
+**4. Frontend'i başlatın** (ikinci bir terminalde). Vite, `/api` isteklerini 5080 portundaki API'ye yönlendirir.
+
+```powershell
+cd frontend
+npm install
+npm run dev
 ```
 
 | Adres | İçerik |
 |---|---|
-| http://localhost:3000 | Web arayüzü |
-| http://localhost:8080/swagger | Swagger UI |
-| http://localhost:8080/health/ready | Hazır olma kontrolü |
+| http://localhost:5173 | Web arayüzü |
+| http://localhost:5080/swagger | Swagger UI |
+| http://localhost:5080/health/ready | Hazır olma kontrolü |
 
-Compose sırası: `postgres` (healthy) → `migrator` (migration + referans veri, sonra çıkar) → `api` → `web`.
-
-### Yerel geliştirme
+### Docker Compose ile (isteğe bağlı)
 
 ```bash
-# 1) PostgreSQL (Docker yoksa yerel bir kurulum da olur)
-docker compose up -d postgres
-
-# 2) API  (Development: migration + demo veri otomatik)
-dotnet run --project src/Nexora.Api --urls http://localhost:5080
-
-# 3) Frontend (Vite, /api isteklerini 5080'e yönlendirir)
-cd frontend && npm install && npm run dev      # http://localhost:5173
+cp .env.example .env            # JWT_SIGNING_KEY'i değiştirin
+docker compose up --build       # web: http://localhost:3000, API: http://localhost:8080/swagger
 ```
+
+Başlama sırası: `postgres` (healthy) → `migrator` (migration ve referans veri, sonra çıkar) → `api` → `web`.
 
 ### Demo hesaplar
 
@@ -227,12 +251,14 @@ API her işlemde `allowedTransitions` alanını döner. Arayüz buna göre buton
 
 ### 5. Testler ve CI/CD
 
-```bash
+```powershell
 dotnet test tests/Nexora.UnitTests                 # Docker gerektirmez
-dotnet test tests/Nexora.IntegrationTests          # Docker (Testcontainers, postgres:17-alpine)
+dotnet test tests/Nexora.IntegrationTests          # Docker (Testcontainers, postgres:18-alpine)
 
-# Docker yoksa: mevcut bir PostgreSQL sunucusuna yönlendirin (geçici bir veritabanı açılıp silinir)
-NEXORA_TEST_POSTGRES="Host=localhost;Port=5432;Username=postgres;Password=postgres;Database=postgres" dotnet test
+# Docker yoksa: kurulu PostgreSQL'e yönlendirin. Her çalıştırmada geçici bir veritabanı açılır ve sonunda silinir.
+# (PowerShell)
+$env:NEXORA_TEST_POSTGRES = "Host=localhost;Port=5432;Username=postgres;Password=<postgres-parolası>;Database=postgres"
+dotnet test
 ```
 
 Integration testler gerçek API pipeline'ını (middleware, auth, filtreler, rate limiter) gerçek PostgreSQL üzerinde çalıştırır. Kapsanan konular:

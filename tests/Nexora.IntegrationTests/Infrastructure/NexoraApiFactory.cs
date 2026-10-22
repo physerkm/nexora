@@ -9,7 +9,7 @@ using Testcontainers.PostgreSql;
 namespace Nexora.IntegrationTests.Infrastructure;
 
 /// <summary>
-/// Boots the real API (all middleware, auth, filters) against a real PostgreSQL 17 database.
+/// Boots the real API (all middleware, auth, filters) against a real PostgreSQL 18 database.
 /// By default a throw-away Testcontainers instance is started (Docker required, as in CI).
 /// Set NEXORA_TEST_POSTGRES to an admin connection string to use an existing server instead;
 /// a uniquely named database is created and dropped around the run.
@@ -41,7 +41,7 @@ public sealed class NexoraApiFactory : WebApplicationFactory<Program>, IAsyncLif
         }
         else
         {
-            _container = new PostgreSqlBuilder("postgres:17-alpine").Build();
+            _container = new PostgreSqlBuilder("postgres:18-alpine").Build();
             await _container.StartAsync();
             ConnectionString = _container.GetConnectionString();
         }

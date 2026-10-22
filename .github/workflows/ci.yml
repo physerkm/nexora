@@ -38,7 +38,7 @@ jobs:
       - name: Unit tests
         run: dotnet test tests/Nexora.UnitTests -c Release --no-build --logger trx --results-directory TestResults
 
-      # Testcontainers starts a real PostgreSQL 17 container (Docker is available on GitHub-hosted runners).
+      # Testcontainers starts a real PostgreSQL 18 container (Docker is available on GitHub-hosted runners).
       - name: Integration tests (PostgreSQL via Testcontainers)
         run: dotnet test tests/Nexora.IntegrationTests -c Release --no-build --logger trx --results-directory TestResults
 
