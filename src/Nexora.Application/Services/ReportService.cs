@@ -1,4 +1,5 @@
 using Microsoft.Extensions.Caching.Hybrid;
+using Microsoft.Extensions.DependencyInjection;
 using Nexora.Application.Abstractions;
 using Nexora.Application.Common;
 using Nexora.Application.DTOs;
@@ -12,7 +13,7 @@ public sealed record ReportResult(ReportSummaryDto Summary, bool CacheHit);
 /// and invalidated by tag whenever a transaction of the tenant changes. The endpoint exposes
 /// <c>X-Cache</c> and <c>Server-Timing</c> headers so the benefit can be measured instead of assumed.
 /// </summary>
-public sealed class ReportService(IReportRepository reports, HybridCache cache, RequestContext context, TimeProvider clock)
+public sealed class ReportService(IServiceScopeFactory scopes, HybridCache cache, RequestContext context, TimeProvider clock)
 {
     private static readonly HybridCacheEntryOptions CacheOptions = new()
     {
@@ -37,7 +38,9 @@ public sealed class ReportService(IReportRepository reports, HybridCache cache, 
             async token =>
             {
                 computed = true;
-                return await reports.GetSummaryAsync(tenantId, from, to, branchId, token);
+                // Same tenant scope as this request (tenantId is null only for platform-wide reports).
+                return await scopes.RunAsync(tenantId, sp =>
+                    sp.GetRequiredService<IReportRepository>().GetSummaryAsync(tenantId, from, to, branchId, token));
             },
             CacheOptions,
             [CacheKeys.TransactionsTag(tenantId)],

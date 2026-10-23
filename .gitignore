@@ -10,3 +10,6 @@ frontend/dist/
 .env
 *.log
 .data/
+playwright-report/
+test-results/
+blob-report/

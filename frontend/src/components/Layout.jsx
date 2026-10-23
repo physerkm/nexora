@@ -44,6 +44,7 @@ function TenantSwitcher() {
       size="small"
       value={tenant?.id ?? ''}
       displayEmpty
+      inputProps={{ 'aria-label': 'Şirket' }}
       onChange={(e) => selectTenant(tenants.find((t) => t.id === e.target.value) ?? null)}
       sx={{ minWidth: 200, bgcolor: 'background.paper' }}
     >
@@ -76,7 +77,7 @@ export default function Layout() {
         <Typography variant="h6">Nexora</Typography>
       </Toolbar>
       <Divider />
-      <List sx={{ px: 1, flex: 1 }}>
+      <List component="nav" aria-label="Ana menü" sx={{ px: 1, flex: 1 }}>
         {items.map((item) => (
           <ListItemButton key={item.to} component={NavLink} to={item.to} sx={{ borderRadius: 2, mb: 0.5, '&.active': { bgcolor: 'action.selected' } }}>
             <ListItemIcon sx={{ minWidth: 40 }}>{item.icon}</ListItemIcon>

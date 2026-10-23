@@ -317,12 +317,47 @@ Integration testler gerçek API pipeline'ını (middleware, auth, filtreler, rat
 | Kimlik | Rotasyon ve tekrar kullanımda zincirin iptali. Logout sonrası access token geçersiz. logout-all. Pasife alınan kullanıcının token'ı anında ölür. Kilitleme. Değiştirilmiş (tampered) token reddi. Refresh token'ın DB'de sadece hash olarak saklanması. |
 | İş kuralları | Durum geçişleri, dört göz ilkesi, ücret kuralı önceliği ve tavan, stale version 409, eşzamanlı onay/ret yarışında tek kazanan, süresi dolma işi. |
 | Idempotency | Replay, farklı içerik 422, anahtarın kullanıcıya özel olması, 12 paralel istekte 1 satır, hata sonrası anahtarın serbest kalması. |
-| Altyapı | Audit trigger'ı (UPDATE/DELETE/TRUNCATE reddi), outbox teslimi ve backoff, advisory lock, health, correlation ID, OpenAPI, cache HIT/MISS ve invalidation, cursor ile tüm satırların tam bir kez gezilmesi. |
+| Altyapı | Audit trigger'ı (UPDATE/DELETE/TRUNCATE reddi), outbox teslimi ve backoff, advisory lock, health, correlation ID, OpenAPI, cache HIT/MISS ve invalidation, önbellek sorgularının çağıran istek bittikten sonra da çalışması, cursor ile tüm satırların tam bir kez gezilmesi. |
+
+#### Frontend testleri
+
+Frontend iki katmanda test edilir:
+
+| Katman | Araçlar | Ne yapar | Süre |
+|---|---|---|---|
+| Bileşen testleri (34) | Vitest, React Testing Library, MSW | Uygulamayı jsdom'da çalıştırır; API'yi taklit eder | ~15 sn |
+| Uçtan uca testler (9) | Playwright | Gerçek tarayıcıda gerçek API ve boş bir PostgreSQL veritabanıyla çalışır | ~1 dk |
+
+```powershell
+cd frontend
+npm test              # bileşen testleri
+npm run test:e2e      # uçtan uca testler (API'yi ve Vite'ı kendisi başlatır: 5180 ve 5174 portları)
+```
+
+Uçtan uca testler kendi veritabanlarını (`nexora_e2e`) kullanır. Geliştirme veritabanına dokunmazlar.
+- Veritabanı her çalıştırmada boşaltılır, ardından API migration'ları uygulayıp demo veriyi yükler.
+- Betik, adı `_e2e` ile bitmeyen bir veritabanını boşaltmayı reddeder.
+- `nexora` kullanıcısının veritabanı oluşturma yetkisi yoksa, bu veritabanını bir kez `postgres` kullanıcısıyla oluşturun: `CREATE DATABASE nexora_e2e OWNER nexora;`
+- Bağlantı ayarları `E2E_DB_HOST/PORT/USER/PASSWORD/NAME` ortam değişkenleriyle değiştirilebilir.
+- Chromium indirmek yerine kurulu Edge'i kullanmak için: `$env:PW_CHANNEL = "msedge"`.
+
+Kapsanan konular:
+
+| Alan | Bileşen testleri | Uçtan uca testler |
+|---|---|---|
+| Oturum | Token'ın her isteğe eklenmesi; 401'de tek bir refresh ile yeniden deneme; eşzamanlı 401'lerin tek refresh'i paylaşması; refresh reddedilince oturumun kapanması | Hatalı parola; sayfa yenilenince oturumun sürmesi; çıkıştan sonra refresh token'ın geçersiz olması; JWT'nin JavaScript'ten okunabilir hiçbir yerde durmaması |
+| Yetki | Role göre menü ve butonlar; yasak sayfaya doğrudan gidince yönlendirme; platform yöneticisinin şirket seçmeden yazamaması ve seçince `X-Tenant-Id` gönderilmesi | Operatörün menüsü ve yönlendirme; platform yöneticisinin tüm şirketleri okuyup yalnızca seçtiği şirkette yazabilmesi |
+| İzolasyon | | Acme müdürü, Globex'in işlemini aramada bulamaz |
+| İş akışı | Onay isteğinin `version` ve idempotency anahtarı taşıması; dört göz ilkesi; ret için gerekçe zorunluluğu; 409 çakışmasında kaydın yeniden yüklenmesi; ücret önizlemesi; hata sonrası tekrar denemede **aynı** idempotency anahtarının kullanılması; şubeye bağlı operatör | Operatörün oluşturduğu işlemi müdürün onaylaması ve geçmişte iki kullanıcının görünmesi; gerekçeli ret; dört göz ilkesi |
+| Liste | "10.000+ kayıt" gösterimi; aramanın gecikmeli (debounce) tek istek atması | |
+
+Uçtan uca testler bir hatayı da ortaya çıkardı: sayfa yenilenirken iptal edilen bir istek, HybridCache'in diğer isteklerle paylaştığı önbellek sorgusunu kapanmış bir `DbContext` ile bırakıyordu. Önbellek sorguları artık kendi DI kapsamlarında çalışıyor (`CacheScope`). Bu durum için bir regresyon testi de eklendi.
 
 **GitHub Actions** (`.github/workflows/ci.yml`):
 1. **backend:** restore, Release build, `ef migrations has-pending-model-changes` kontrolü (migration'ı unutulmuş model değişikliği build'i kırar), unit testler, integration testler (Testcontainers), idempotent migration SQL script'inin artefakt olarak üretilmesi.
-2. **frontend:** `npm ci` + `npm run build`.
-3. **docker:** API ve web imajlarının build'i, `docker compose config` doğrulaması.
+2. **frontend:** `npm ci`, bileşen testleri, `npm run build`.
+3. **e2e:** PostgreSQL 18 servisiyle API'yi ve Vite'ı başlatıp Playwright testlerini Chromium'da çalıştırır. Hata olursa rapor, ekran görüntüleri ve trace dosyası artefakt olarak yüklenir.
+4. **docker:** API ve web imajlarının build'i, `docker compose config` doğrulaması.
 
 Migration ve deployment adımları için: **[docs/deployment.md](docs/deployment.md)**.
 
@@ -383,4 +418,4 @@ Ortam değişkeni karşılığı: `Jwt__SigningKey`, `ConnectionStrings__Default
 - HybridCache'in tag temizliği yalnızca o instance'ın L1 belleğini etkiler. Diğer instance'larda bayatlık kısa L1 süresiyle (15–30 sn) sınırlı kalır.
 - Tenant izolasyonu uygulama katmanında üç seviyede uygulanıyor. Daha da sıkı bir garanti için PostgreSQL Row-Level Security eklenebilir.
 - Webhook URL'leri `https` ile sınırlı. Üretimde SSRF'e karşı iç ağ adreslerine giden isteklerin de engellenmesi gerekir.
-- Frontend için otomatik test yok; CI sadece build'ini doğruluyor.
+- Uçtan uca testler yalnızca Chromium'da çalışıyor; Firefox ve WebKit projeleri `playwright.config.js`'e eklenebilir.

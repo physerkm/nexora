@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Hybrid;
+using Microsoft.Extensions.DependencyInjection;
 using Nexora.Application.Abstractions;
 using Nexora.Application.Common;
 using Nexora.Domain;
@@ -13,7 +14,7 @@ public sealed record UserSessionState(string? SecurityStamp, bool IsActive);
 /// a token is rejected if its jti was logged out, or if the user's security stamp changed
 /// (password change, "log out everywhere", deactivation). The lookup is cached for a few seconds.
 /// </summary>
-public sealed class SessionValidator(IApplicationDbContext db, HybridCache cache, ITokenRevocationStore revocations)
+public sealed class SessionValidator(IServiceScopeFactory scopes, HybridCache cache, ITokenRevocationStore revocations)
 {
     private static readonly HybridCacheEntryOptions CacheOptions = new()
     {
@@ -30,10 +31,10 @@ public sealed class SessionValidator(IApplicationDbContext db, HybridCache cache
 
         var state = await cache.GetOrCreateAsync(
             CacheKeys.UserSession(userId),
-            async token => await db.Users.AsNoTracking()
+            async token => await scopes.RunAsync(null, sp => sp.GetRequiredService<IApplicationDbContext>().Users.AsNoTracking()
                 .Where(u => u.Id == userId)
                 .Select(u => new UserSessionState(u.SecurityStamp, u.IsActive))
-                .FirstOrDefaultAsync(token),
+                .FirstOrDefaultAsync(token)),
             CacheOptions,
             [CacheKeys.UserTag(userId)],
             ct);
@@ -45,7 +46,7 @@ public sealed class SessionValidator(IApplicationDbContext db, HybridCache cache
         cache.RemoveByTagAsync(CacheKeys.UserTag(userId), ct);
 }
 
-public sealed class TenantStatusProvider(IApplicationDbContext db, HybridCache cache)
+public sealed class TenantStatusProvider(IServiceScopeFactory scopes, HybridCache cache)
 {
     private static readonly HybridCacheEntryOptions CacheOptions = new()
     {
@@ -57,10 +58,10 @@ public sealed class TenantStatusProvider(IApplicationDbContext db, HybridCache c
     {
         return await cache.GetOrCreateAsync(
             CacheKeys.TenantStatus(tenantId),
-            async token => await db.Tenants.AsNoTracking()
+            async token => await scopes.RunAsync(null, sp => sp.GetRequiredService<IApplicationDbContext>().Tenants.AsNoTracking()
                 .Where(t => t.Id == tenantId)
                 .Select(t => (TenantStatus?)t.Status)
-                .FirstOrDefaultAsync(token),
+                .FirstOrDefaultAsync(token)),
             CacheOptions,
             [CacheKeys.TenantTag(tenantId)],
             ct);

@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Design;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 using Nexora.Application.Common;
 
 namespace Nexora.Infrastructure.Persistence;
@@ -14,7 +15,10 @@ internal static class DbContextSetup
                 npgsql.EnableRetryOnFailure(maxRetryCount: 3, maxRetryDelay: TimeSpan.FromSeconds(2), errorCodesToAdd: null);
                 npgsql.CommandTimeout(30);
             })
-            .UseSnakeCaseNamingConvention();
+            .UseSnakeCaseNamingConvention()
+            // The capped list count (TransactionReadRepository) is deliberately unordered:
+            // SELECT count(*) FROM (... LIMIT n) needs no sort, and an ORDER BY would only make it slower.
+            .ConfigureWarnings(w => w.Ignore(CoreEventId.RowLimitingOperationWithoutOrderByWarning));
 }
 
 /// <summary>Used by <c>dotnet ef</c> (migrations add / script / bundle). Never used at runtime.</summary>

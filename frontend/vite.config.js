@@ -6,12 +6,21 @@ import react from '@vitejs/plugin-react';
 export default defineConfig({
   plugins: [react()],
   server: {
-    port: 5173,
+    port: Number(process.env.VITE_PORT ?? 5173),
+    strictPort: !!process.env.VITE_PORT,
     proxy: {
       '/api': { target: process.env.VITE_API_TARGET ?? 'http://localhost:5080', changeOrigin: false },
     },
   },
   build: {
     chunkSizeWarningLimit: 1500,
+  },
+  // Component tests (Vitest + Testing Library, API mocked with MSW). Browser tests live in e2e/ (Playwright).
+  test: {
+    environment: 'jsdom',
+    setupFiles: ['./src/test/setup.js'],
+    include: ['src/**/*.test.{js,jsx}'],
+    css: false,
+    testTimeout: 15000,
   },
 });
