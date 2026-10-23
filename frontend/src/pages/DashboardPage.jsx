@@ -30,6 +30,8 @@ export default function DashboardPage() {
   }, [days]);
 
   const total = summary?.statusBreakdown.reduce((s, x) => s + x.count, 0) ?? 0;
+  // The API lists currencies alphabetically; there is room for three cards, so show the busiest ones.
+  const topCurrencies = [...(summary?.totals ?? [])].sort((a, b) => b.approvedCount - a.approvedCount).slice(0, 3);
 
   return (
     <>
@@ -52,7 +54,7 @@ export default function DashboardPage() {
             <Grid size={{ xs: 12, sm: 6, lg: 3 }}>
               <Kpi label="Toplam işlem" value={number(total)} />
             </Grid>
-            {summary.totals.slice(0, 3).map((t) => (
+            {topCurrencies.map((t) => (
               <Grid key={t.currency} size={{ xs: 12, sm: 6, lg: 3 }}>
                 <Kpi label={`Onaylı hacim · ${t.currency}`} value={money(t.approvedVolume, t.currency)}
                   hint={`${number(t.approvedCount)} işlem · ücret geliri ${money(t.feeIncome, t.currency)}`} />

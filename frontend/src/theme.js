@@ -4,7 +4,8 @@ import { trTR as gridTrTR } from '@mui/x-data-grid/locales';
 
 export const theme = createTheme(
   {
-    cssVariables: true,
+    // 'class' lets the theme button switch modes; the default ('media') only follows the OS setting.
+    cssVariables: { colorSchemeSelector: 'class' },
     colorSchemes: {
       light: {
         palette: {
