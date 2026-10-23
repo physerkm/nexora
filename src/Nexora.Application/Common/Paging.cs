@@ -3,6 +3,8 @@ namespace Nexora.Application.Common;
 /// <summary>
 /// Uniform list envelope. Offset paging fills <see cref="TotalCount"/>/<see cref="TotalPages"/>;
 /// keyset (cursor) paging leaves them null and fills <see cref="NextCursor"/> instead.
+/// <see cref="TotalCountCapped"/> is true when counting stopped at a limit: there are more rows than
+/// <see cref="TotalCount"/> (shown as "10,000+").
 /// </summary>
 public sealed record PagedResult<T>(
     IReadOnlyList<T> Items,
@@ -10,10 +12,11 @@ public sealed record PagedResult<T>(
     int PageSize,
     long? TotalCount,
     int? TotalPages,
-    string? NextCursor = null)
+    string? NextCursor = null,
+    bool TotalCountCapped = false)
 {
-    public static PagedResult<T> Create(IReadOnlyList<T> items, int page, int pageSize, long total) =>
-        new(items, page, pageSize, total, (int)Math.Ceiling(total / (double)pageSize));
+    public static PagedResult<T> Create(IReadOnlyList<T> items, int page, int pageSize, long total, bool capped = false) =>
+        new(items, page, pageSize, total, (int)Math.Ceiling(total / (double)pageSize), null, capped);
 }
 
 public static class Paging

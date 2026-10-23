@@ -171,7 +171,9 @@ public sealed class TransactionReasonRequestValidator : AbstractValidator<Transa
 
 public sealed class TransactionListQueryValidator : AbstractValidator<TransactionListQuery>
 {
-    public static readonly string[] SortFields = ["createdAt", "amount", "status", "reference", "type"];
+    // Only orders backed by an index (see TransactionReadRepository.Sort); sorting a 12M row tenant by an
+    // unindexed column takes ~20 s.
+    public static readonly string[] SortFields = ["createdAt", "amount", "status", "reference"];
 
     public TransactionListQueryValidator()
     {

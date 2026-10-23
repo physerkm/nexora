@@ -90,6 +90,46 @@ Parolaların hepsi `Nexora#2026`.
 
 Her demo şirkette 1.500 işlem, 2–3 şube ve ücret kuralları bulunur.
 
+### Büyük veri: IBM TabFormer (24 milyon işlem, isteğe bağlı)
+
+Performansı gerçekçi bir hacimde görmek için demo şirketlere [IBM TabFormer](https://github.com/IBM/TabFormer) kredi kartı veri seti yüklenebilir. Veri sentetiktir (gerçek kişi içermez) ve Apache-2.0 lisanslıdır.
+
+```powershell
+# Önce API'yi bir kez Development ortamında başlatın (acme ve globex oluşsun), sonra:
+.\tools\tabformer\import-tabformer.ps1           # indirir (~266 MB), açar (~2,2 GB) ve yükler
+.\tools\tabformer\import-tabformer.ps1 -Reset    # önceki TabFormer yüklemesini silip yeniden yükler
+```
+
+Veri şöyle eşlenir:
+
+| TabFormer | Nexora |
+|---|---|
+| Kart sahibi 0–999 / 1000–1999 | `acme` / `globex` (her biri ~12 milyon işlem) |
+| İşyeri eyaleti / ülkesi / `ONLINE` | Şube (`TF-001`, …, ör. "ABD · CA", "Online satışlar") |
+| Negatif tutar / MCC 4829 / MCC 6011 | `Refund` / `Transfer` / `Payout`, diğerleri `Payment` |
+| Dolandırıcılık veya işlem hatası | `Rejected` (gerekçesiyle) |
+| Son 36 saat | `Pending`, diğerleri `Approved` |
+| Tarihler | En yeni işlem dün olacak şekilde kaydırılır (aradaki süreler korunur) |
+
+Tutarlar USD'dir ve ücretler şirketin ücret kurallarıyla hesaplanır. Tutarı 0 olan satırlar atlanır. Her şirket için tek bir `import.tabformer` audit kaydı yazılır.
+
+Betik CSV'yi `UNLOGGED` bir ara tabloya `COPY` ile alır ve tek bir `INSERT … SELECT` ile dönüştürür. Bu sırada ikincil indeksleri kaldırır ve sonda yeniden oluşturur. Bu adım hata olsa bile çalışır.
+
+Bu makinede (16 GB RAM, SSD) toplam süre yaklaşık 1–1,5 saat sürdü. Veritabanı indekslerle birlikte ~19 GB oldu; işlem sırasında ~25 GB boş disk gerekir. İndirilen dosyalar git'e girmeyen `.data/tabformer` klasöründe kalır.
+
+**Ölçülen API süreleri** (12,1 milyon işlemli `acme` şirketi, Development, ısınmış önbellek):
+
+| İstek | Önce | Sonra | Ne değişti |
+|---|---:|---:|---|
+| Varsayılan liste (1. sayfa) | 2,0 sn | 0,09 sn | Sayım 10.000'de duruyor |
+| Tutara göre sıralama | 20 sn | 0,1 sn | `(tenant_id, amount, id)` indeksi |
+| Duruma göre sıralama | 23 sn | 0,1 sn | `(tenant_id, status, created_at, id)` indeksi |
+| Sık geçen kelimeyle arama ("market", 1,5 milyon eşleşme) | 23 sn | 0,35 sn | Sınırlı sayım |
+| Platform: tüm şirketler (24 milyon) | 19 sn | 0,08 sn | `(created_at, id)` indeksi + sınırlı sayım |
+| Gösterge paneli, 90 gün (önbellek boşken) | 2,8 sn | 1,1 sn | Rapor kolonları indekste (`INCLUDE`) |
+| Gösterge paneli (önbellekten) | 0,04 sn | 0,04 sn | |
+| Cursor sayfalama | 0,1 sn | 0,08 sn | Zaten indeksliydi |
+
 ---
 
 ## Mimari
@@ -176,12 +216,19 @@ Ek kurallar:
 
 - **Sayfalama, filtre, sıralama, arama:** `GET /api/v1/transactions` şunları destekler:
   - Filtreler: `status`, `type`, `branchId`, `currency`, `from/to`, `minAmount/maxAmount`, `search`.
-  - Sıralama: `sortBy` (`createdAt|amount|status|reference|type`), `sortDir`. Sıralama alanları beyaz listeyle sınırlı.
+  - Sıralama: `sortBy` (`createdAt|amount|status|reference`), `sortDir`. Yalnızca bir indeksle karşılanan sıralamalara izin verilir; indekssiz bir kolona göre sıralamak 12 milyon satırlık bir şirkette ~20 sn sürer.
   - Offset sayfalama: `page/pageSize` (en fazla 100). Kararlı sıra için `id` tie-breaker kullanılır.
+  - Toplam kayıt sayısı en fazla 10.000'e kadar sayılır (`SELECT count(*) FROM (… LIMIT 10001)`). Daha fazlası varsa `totalCount: 10000, totalCountCapped: true` döner ve arayüz "10.000+ kayıt" gösterir. Tam `COUNT(*)` büyük bir şirkette her sayfada saniyeler sürer; daha derine cursor sayfalamayla inilir.
 - **Büyük tablo optimizasyonları:**
   - **Keyset (cursor) sayfalama:** `paging=cursor` ile PostgreSQL row-value karşılaştırması `(created_at, id) < (@c, @i)` kullanılır. Bu doğrudan `ix_transactions_tenant_created (tenant_id, created_at DESC, id DESC)` indeksine oturur, `OFFSET` taraması ve `COUNT(*)` gerektirmez. CSV dışa aktarımı da bu yöntemle 50.000 satıra kadar akış halinde (stream) çalışır.
   - **Arama:** `pg_trgm` GIN indeksleri sayesinde `ILIKE '%…%'` aramaları tam tablo taraması yapmaz. Kullanıcı girdisindeki `%` ve `_` karakterleri kaçışlanır.
-  - **Diğer indeksler:** Durum ve şube filtreleri için bileşik indeksler; süresi dolacak işlemleri bulan iş için `status = 'Pending'` kısmi indeksi.
+  - **Diğer indeksler:**
+    - `(tenant_id, status, created_at, id) INCLUDE (currency, amount, fee)`: Durum filtresi, duruma göre sıralama ve gösterge paneli toplamları. `INCLUDE` sayesinde rapor toplamları tabloya hiç gitmeden (index-only scan) hesaplanır.
+    - `(tenant_id, amount, id)`: Tutara göre sıralama (iki yönde).
+    - `(tenant_id, branch_id, created_at)`: Şube filtresi ve şube raporu.
+    - `(created_at DESC, id DESC)`: Platform yöneticisinin tüm şirketleri birlikte gördüğü liste.
+    - `status = 'Pending'` kısmi indeksi: Süresi dolacak işlemleri bulan iş.
+    - Büyük tabloya sonradan eklenen indeksler migration içinde `CREATE INDEX CONCURRENTLY` ile oluşturulur. Böylece yazmalar durmaz.
   - **Okuma sorguları:** `AsNoTracking`, sadece gereken kolonlar, şube adları tek bir toplu sorguyla getirilir (N+1 yok).
 - **Optimistic concurrency:** PostgreSQL'in `xmin` sistem kolonu sürüm (version) olarak kullanılır; ek kolon gerekmez. İstemci son gördüğü `version` değerini gönderir, araya başka bir değişiklik girmişse `409 concurrency_conflict` döner. Testte iki müdür aynı işlemi aynı anda onaylamaya/reddetmeye çalışır: biri kazanır, diğeri 409 alır.
 - **Transaction yönetimi:**

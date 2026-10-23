@@ -349,8 +349,42 @@ public sealed class TransactionQueryTests(NexoraApiFactory factory)
         Assert.Equal(11, seen.Distinct().Count());
     }
 
+    [Fact]
+    public async Task Total_count_is_capped_on_large_tenants()
+    {
+        var tenant = await TestTenant.CreateAsync(factory, "bigcount");
+        var operatorUser = await factory.LoginAsync(tenant.FreeOperatorEmail);
+        var seed = await operatorUser.CreateTransactionAsync(tenant.MainBranchId, 10m);
+
+        // 10,050 more copies of the seed row, so the tenant holds more rows than the count cap. They are
+        // inserted as Approved: thousands of old Pending rows would crowd the expiry job test's batch.
+        await factory.WithDbAsync(db => db.Database.ExecuteSqlInterpolatedAsync($"""
+            INSERT INTO transactions (id, tenant_id, branch_id, reference, type, amount, currency, fee, net_amount, status,
+                                      created_by_user_id, created_at)
+            SELECT gen_random_uuid(), tenant_id, branch_id, reference || '-' || g, type, amount + g, currency, fee,
+                   net_amount + g, 'Approved', created_by_user_id, created_at - make_interval(secs => g)
+            FROM transactions, generate_series(1, 10050) AS g
+            WHERE id = {seed.Id}
+            """));
+
+        var manager = await factory.LoginAsync(tenant.ManagerEmail);
+
+        var all = await manager.GetJsonAsync<PagedResult<TransactionDto>>("/api/v1/transactions?pageSize=25");
+        Assert.Equal(10_000, all.TotalCount);
+        Assert.True(all.TotalCountCapped);
+        Assert.Equal(400, all.TotalPages);
+
+        var byAmount = await manager.GetJsonAsync<PagedResult<TransactionDto>>("/api/v1/transactions?sortBy=amount&sortDir=desc&pageSize=2");
+        Assert.Equal([10_060m, 10_059m], byAmount.Items.Select(t => t.Amount));
+
+        var filtered = await manager.GetJsonAsync<PagedResult<TransactionDto>>("/api/v1/transactions?minAmount=10000");
+        Assert.Equal(61, filtered.TotalCount);
+        Assert.False(filtered.TotalCountCapped);
+    }
+
     [Theory]
     [InlineData("sortBy=passwordHash")]
+    [InlineData("sortBy=type")]
     [InlineData("sortDir=sideways")]
     [InlineData("paging=cursor&sortBy=amount")]
     [InlineData("cursor=garbage")]

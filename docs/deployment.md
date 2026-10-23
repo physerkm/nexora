@@ -19,7 +19,11 @@ dotnet ef migrations add <Ad> --project src/Nexora.Infrastructure --startup-proj
 Kurallar:
 
 1. Üretilen dosyayı gözden geçirin. Özellikle kolon silme, tip daraltma ve büyük tablolara indeks eklemeye dikkat edin.
-2. Büyük tablolarda indeks eklerken kilitlenmeyi önlemek için `migrationBuilder.Sql("CREATE INDEX CONCURRENTLY …")` kullanın ve o migration'ı transaction dışında çalıştırın (`suppressTransaction: true`).
+2. Büyük tablolarda indeks eklerken kilitlenmeyi önlemek için indeksi `CONCURRENTLY` oluşturun. Örnek: `20261023015548_TransactionListIndexes`.
+   - Yeni indeks için modelde `.IsCreatedConcurrently()` kullanın. Elle yazılan SQL'de `migrationBuilder.Sql("CREATE INDEX CONCURRENTLY …", suppressTransaction: true)` kullanın.
+   - Bir indeksi değiştirirken önce yenisini geçici adla oluşturun, sonra eskisini `DROP INDEX CONCURRENTLY` ile silin ve yenisini `ALTER INDEX … RENAME` ile yeniden adlandırın. Böylece sorgular hiçbir an indekssiz kalmaz.
+   - Bu adımlar transaction dışında çalışır. Yarıda kesilirse migration geçmişe yazılmaz ve yarım kalmış (`INVALID`) bir indeks kalabilir. Tekrar çalıştırmadan önce zaten oluşmuş ya da `INVALID` kalmış indeksleri `DROP INDEX CONCURRENTLY` ile silin. Bunları `SELECT indexrelid::regclass FROM pg_index WHERE NOT indisvalid` ile bulabilirsiniz.
+   - Migration uygulanırken komut zaman aşımı 2 saattir (`DatabaseInitializer`). 24 milyon satırda bu migration ~10 dakika sürdü.
 3. Geriye dönük uyumsuz değişiklikleri **expand → migrate → contract** adımlarıyla yapın:
    - Yeni kolonu nullable olarak ekleyin ve kodu iki kolonla da çalışacak şekilde deploy edin.
    - Veriyi taşıyın.

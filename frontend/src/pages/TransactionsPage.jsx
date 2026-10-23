@@ -8,11 +8,12 @@ import { api, downloadFile } from '../api/client';
 import { useAuth } from '../auth/AuthContext';
 import { PageHeader, StatusChip, useDebounced } from '../components/Common';
 import { useNotify } from '../components/Notify';
-import { CURRENCIES, dateTime, errorMessage, money, STATUS, TYPES } from '../utils/format';
+import { CURRENCIES, dateTime, errorMessage, money, number, STATUS, TYPES } from '../utils/format';
 import TransactionDrawer from './TransactionDrawer';
 import NewTransactionDialog from './NewTransactionDialog';
 
-const SORT_FIELDS = { createdAt: 'createdAt', amount: 'amount', status: 'status', reference: 'reference', type: 'type' };
+// Only index-backed orders are offered (see TransactionReadRepository.Sort on the API).
+const SORT_FIELDS = { createdAt: 'createdAt', amount: 'amount', status: 'status', reference: 'reference' };
 
 export default function TransactionsPage() {
   const { can, canWrite } = useAuth();
@@ -77,7 +78,7 @@ export default function TransactionsPage() {
     { field: 'reference', headerName: 'Referans', flex: 1.2, minWidth: 190, cellClassName: 'mono' },
     { field: 'createdAt', headerName: 'Tarih', flex: 1, minWidth: 140, valueFormatter: (v) => dateTime(v) },
     { field: 'branchName', headerName: 'Şube', flex: 1, minWidth: 130, sortable: false },
-    { field: 'type', headerName: 'Tür', width: 120, valueFormatter: (v) => TYPES[v] ?? v },
+    { field: 'type', headerName: 'Tür', width: 120, sortable: false, valueFormatter: (v) => TYPES[v] ?? v },
     { field: 'counterpartyName', headerName: 'Karşı taraf', flex: 1, minWidth: 140, sortable: false },
     { field: 'amount', headerName: 'Tutar', width: 140, align: 'right', headerAlign: 'right', renderCell: (p) => money(p.value, p.row.currency) },
     { field: 'fee', headerName: 'Ücret', width: 110, align: 'right', headerAlign: 'right', sortable: false, renderCell: (p) => money(p.value, p.row.currency) },
@@ -88,7 +89,7 @@ export default function TransactionsPage() {
     <>
       <PageHeader
         title="İşlemler"
-        subtitle={`${data.totalCount ?? 0} kayıt`}
+        subtitle={`${number(data.totalCount ?? 0)}${data.totalCountCapped ? '+' : ''} kayıt`}
         actions={
           <>
             {can('viewReports') && <Button startIcon={<DownloadIcon />} onClick={exportCsv}>CSV</Button>}

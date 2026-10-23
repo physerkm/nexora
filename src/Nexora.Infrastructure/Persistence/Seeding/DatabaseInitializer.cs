@@ -30,7 +30,18 @@ public sealed class DatabaseInitializer(
         {
             var pending = (await db.Database.GetPendingMigrationsAsync(ct)).ToList();
             logger.LogInformation("Applying {Count} pending migration(s): {Migrations}", pending.Count, pending);
-            await db.Database.MigrateAsync(ct);
+
+            // Index builds on a large transactions table take minutes, far beyond the 30 s request timeout.
+            var previousTimeout = db.Database.GetCommandTimeout();
+            db.Database.SetCommandTimeout(TimeSpan.FromHours(2));
+            try
+            {
+                await db.Database.MigrateAsync(ct);
+            }
+            finally
+            {
+                db.Database.SetCommandTimeout(previousTimeout);
+            }
         }
 
         foreach (var role in Roles.All)

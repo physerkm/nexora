@@ -906,9 +906,18 @@ namespace Nexora.Infrastructure.Persistence.Migrations
                     NpgsqlIndexBuilderExtensions.HasMethod(b.HasIndex("Reference"), "gin");
                     NpgsqlIndexBuilderExtensions.HasOperators(b.HasIndex("Reference"), new[] { "gin_trgm_ops" });
 
+                    b.HasIndex("CreatedAt", "Id")
+                        .IsDescending()
+                        .HasDatabaseName("ix_transactions_created")
+                        .HasAnnotation("Npgsql:CreatedConcurrently", true);
+
                     b.HasIndex("TenantId", "Reference")
                         .IsUnique()
                         .HasDatabaseName("ux_transactions_tenant_reference");
+
+                    b.HasIndex("TenantId", "Amount", "Id")
+                        .HasDatabaseName("ix_transactions_tenant_amount")
+                        .HasAnnotation("Npgsql:CreatedConcurrently", true);
 
                     b.HasIndex("TenantId", "BranchId", "CreatedAt")
                         .IsDescending(false, false, true)
@@ -918,14 +927,16 @@ namespace Nexora.Infrastructure.Persistence.Migrations
                         .IsDescending(false, true, true)
                         .HasDatabaseName("ix_transactions_tenant_created");
 
+                    NpgsqlIndexBuilderExtensions.IncludeProperties(b.HasIndex("TenantId", "CreatedAt", "Id"), new[] { "Status", "BranchId", "Currency", "Amount", "Fee" });
+
                     b.HasIndex("TenantId", "CreatedByUserId", "IdempotencyKey")
                         .IsUnique()
                         .HasDatabaseName("ux_transactions_idempotency_key")
                         .HasFilter("idempotency_key IS NOT NULL");
 
-                    b.HasIndex("TenantId", "Status", "CreatedAt")
-                        .IsDescending(false, false, true)
-                        .HasDatabaseName("ix_transactions_tenant_status_created");
+                    b.HasIndex("TenantId", "Status", "CreatedAt", "Id")
+                        .HasDatabaseName("ix_transactions_tenant_status")
+                        .HasAnnotation("Npgsql:CreatedConcurrently", true);
 
                     b.ToTable("transactions", (string)null);
                 });

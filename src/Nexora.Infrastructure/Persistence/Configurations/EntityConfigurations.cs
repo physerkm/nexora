@@ -69,14 +69,29 @@ internal sealed class TransactionConfiguration : IEntityTypeConfiguration<Transa
         b.HasOne<AppUser>().WithMany().HasForeignKey(x => x.CreatedByUserId).OnDelete(DeleteBehavior.Restrict);
 
         // Default listing: WHERE tenant_id = @t ORDER BY created_at DESC, id DESC  (also serves keyset pagination).
+        // The included columns turn every dashboard aggregate over a date range into an index-only range scan
+        // (90 days of a 12M row tenant: ~240k index entries instead of scattered heap pages).
         b.HasIndex(x => new { x.TenantId, x.CreatedAt, x.Id })
             .IsDescending(false, true, true)
+            .IncludeProperties(x => new { x.Status, x.BranchId, x.Currency, x.Amount, x.Fee })
             .HasDatabaseName("ix_transactions_tenant_created");
 
-        // Status / branch filtered listings and the dashboard aggregates.
-        b.HasIndex(x => new { x.TenantId, x.Status, x.CreatedAt })
-            .IsDescending(false, false, true)
-            .HasDatabaseName("ix_transactions_tenant_status_created");
+        // Platform admins list every tenant at once: ORDER BY created_at DESC, id DESC without a tenant prefix.
+        b.HasIndex(x => new { x.CreatedAt, x.Id })
+            .IsDescending(true, true)
+            .IsCreatedConcurrently()
+            .HasDatabaseName("ix_transactions_created");
+
+        // Status filtered listings and sorting by status (newest/oldest first within a status).
+        b.HasIndex(x => new { x.TenantId, x.Status, x.CreatedAt, x.Id })
+            .IsCreatedConcurrently()
+            .HasDatabaseName("ix_transactions_tenant_status");
+
+        // Sorting by amount (both directions via a backward scan).
+        b.HasIndex(x => new { x.TenantId, x.Amount, x.Id })
+            .IsCreatedConcurrently()
+            .HasDatabaseName("ix_transactions_tenant_amount");
+
         b.HasIndex(x => new { x.TenantId, x.BranchId, x.CreatedAt })
             .IsDescending(false, false, true)
             .HasDatabaseName("ix_transactions_tenant_branch_created");

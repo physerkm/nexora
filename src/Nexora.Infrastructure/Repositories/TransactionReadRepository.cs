@@ -48,14 +48,23 @@ internal sealed class TransactionReadRepository(NexoraDbContext db) : ITransacti
             return new PagedResult<TransactionDto>(await ToDtosAsync(rows, ct), page, pageSize, null, null, next);
         }
 
-        var total = await filtered.LongCountAsync(ct);
+        // An exact COUNT(*) reads every matching row: ~2 s for a 12M row tenant and ~20 s for a broad search.
+        // Counting stops at the cap instead (SELECT count(*) FROM (... LIMIT cap + 1)), which bounds the cost
+        // and the deepest offset page. Clients page further with cursor paging.
+        var counted = await filtered.Take(CountCap + 1).LongCountAsync(ct);
+        var capped = counted > CountCap;
+        var total = capped ? CountCap : counted;
+
         var pageRows = await Sort(filtered, query.SortBy, descending)
             .Skip((page - 1) * pageSize)
             .Take(pageSize)
             .ToListAsync(ct);
 
-        return PagedResult<TransactionDto>.Create(await ToDtosAsync(pageRows, ct), page, pageSize, total);
+        return PagedResult<TransactionDto>.Create(await ToDtosAsync(pageRows, ct), page, pageSize, total, capped);
     }
+
+    /// <summary>Offset lists count matching rows up to this number and report "10,000+" beyond it.</summary>
+    internal const int CountCap = 10_000;
 
     public async Task<TransactionDto?> GetAsync(Guid id, CancellationToken ct)
     {
@@ -106,16 +115,19 @@ internal sealed class TransactionReadRepository(NexoraDbContext db) : ITransacti
         IOrderedQueryable<Transaction> By<TKey>(Expression<Func<Transaction, TKey>> key) =>
             descending ? source.OrderByDescending(key) : source.OrderBy(key);
 
+        // Every order matches an index read forwards or backwards, so a page never sorts the whole tenant:
+        //   createdAt -> ix_transactions_tenant_created, amount -> ix_transactions_tenant_amount,
+        //   status    -> ix_transactions_tenant_status (newest/oldest first within a status),
+        //   reference -> ux_transactions_tenant_reference.
+        // The trailing Id is a deterministic tie-breaker so offset pages never overlap or skip rows.
         var ordered = sortBy?.ToLowerInvariant() switch
         {
             "amount" => By(t => t.Amount),
-            "status" => By(t => t.Status),
+            "status" => descending ? By(t => t.Status).ThenByDescending(t => t.CreatedAt) : By(t => t.Status).ThenBy(t => t.CreatedAt),
             "reference" => By(t => t.Reference),
-            "type" => By(t => t.Type),
             _ => By(t => t.CreatedAt),
         };
 
-        // Deterministic tie-breaker so offset pages never overlap or skip rows.
         return descending ? ordered.ThenByDescending(t => t.Id) : ordered.ThenBy(t => t.Id);
     }
 
