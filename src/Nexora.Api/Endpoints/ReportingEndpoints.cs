@@ -3,6 +3,7 @@ using System.Globalization;
 using System.Text;
 using Nexora.Api.Authentication;
 using Nexora.Api.Filters;
+using Nexora.Application.Common;
 using Nexora.Application.DTOs;
 using Nexora.Application.Services;
 
@@ -46,9 +47,9 @@ public static class ReportingEndpoints
                         foreach (var t in page.Items)
                         {
                             await writer.WriteLineAsync(string.Join(',',
-                                t.Reference, t.CreatedAt.ToString("O"), Csv(t.BranchName), t.Type, t.Status,
+                                t.Reference, t.CreatedAt.ToString("O"), CsvField.Quote(t.BranchName), t.Type, t.Status,
                                 t.Amount.ToString(CultureInfo.InvariantCulture), t.Fee.ToString(CultureInfo.InvariantCulture),
-                                t.NetAmount.ToString(CultureInfo.InvariantCulture), t.Currency, Csv(t.CounterpartyName)));
+                                t.NetAmount.ToString(CultureInfo.InvariantCulture), t.Currency, CsvField.Quote(t.CounterpartyName)));
                         }
 
                         written += page.Items.Count;
@@ -67,21 +68,5 @@ public static class ReportingEndpoints
             .WithSummary("Search the immutable audit trail");
 
         return app;
-    }
-
-    /// <summary>Quotes a CSV field and neutralises spreadsheet formula injection.</summary>
-    private static string Csv(string? value)
-    {
-        if (string.IsNullOrEmpty(value))
-        {
-            return string.Empty;
-        }
-
-        if (value[0] is '=' or '+' or '-' or '@')
-        {
-            value = "'" + value;
-        }
-
-        return $"\"{value.Replace("\"", "\"\"")}\"";
     }
 }
