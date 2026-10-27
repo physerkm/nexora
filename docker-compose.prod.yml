@@ -1,0 +1,31 @@
+# Production override: serves the app over HTTPS on ports 80/443 via Caddy.
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+# Requires DOMAIN in .env and a DNS A record pointing the domain to this server.
+services:
+  caddy:
+    image: caddy:2.10-alpine
+    restart: unless-stopped
+    environment:
+      DOMAIN: ${DOMAIN:?Set DOMAIN (e.g. app.example.com) in .env}
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - web
+
+  # Reachable only through Caddy, so nobody can bypass HTTPS on ports 3000/8080.
+  web:
+    ports: !reset []
+    restart: unless-stopped
+
+  api:
+    ports: !reset []
+
+volumes:
+  caddy_data:
+  caddy_config:

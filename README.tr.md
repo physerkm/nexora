@@ -85,6 +85,8 @@ docker compose up --build       # web: http://localhost:3000, API: http://localh
 
 Başlama sırası: `postgres` (healthy) → `migrator` (migration ve referans veri, sonra çıkar) → `api` → `web`.
 
+Sunucuda HTTPS ile çalıştırmak için `docker-compose.prod.yml` kullanılır: [docs/deployment.md](docs/deployment.md#sunucuya-https-ile-kurulum).
+
 ### Demo hesaplar
 
 Parolaların hepsi `Nexora#2026`.

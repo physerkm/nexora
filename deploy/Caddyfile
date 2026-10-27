@@ -1,0 +1,10 @@
+# HTTPS entry point for production (used by docker-compose.prod.yml).
+# Caddy gets a free Let's Encrypt certificate for $DOMAIN, renews it automatically
+# and redirects plain HTTP to HTTPS. The refresh-token cookie is Secure, so the app needs HTTPS.
+{$DOMAIN} {
+	encode zstd gzip
+
+	header Strict-Transport-Security "max-age=31536000"
+
+	reverse_proxy web:80
+}

@@ -71,6 +71,8 @@ cp .env.example .env            # set JWT_SIGNING_KEY
 docker compose up --build       # web: http://localhost:3000, API: http://localhost:8080/swagger
 ```
 
+On a server, add `docker-compose.prod.yml` for automatic HTTPS (Caddy + Let's Encrypt); see [docs/deployment.md](docs/deployment.md#sunucuya-https-ile-kurulum) (Turkish).
+
 **Without Docker**
 
 ```bash
