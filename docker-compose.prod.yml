@@ -25,6 +25,9 @@ services:
 
   api:
     ports: !reset []
+    environment:
+      # Caddy + nginx: both are trusted to report the client IP.
+      ReverseProxy__ForwardLimit: "2"
 
 volumes:
   caddy_data:

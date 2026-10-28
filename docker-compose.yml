@@ -49,6 +49,8 @@ services:
       Bootstrap__PlatformAdminPassword: ${PLATFORM_ADMIN_PASSWORD:-Nexora#2026}
       Seed__DemoData: ${SEED_DEMO_DATA:-true}
       Database__InitializeOnStartup: "false"
+      # Requests reach the API through the web container's nginx (see docs/deployment.md).
+      ReverseProxy__ForwardLimit: "1"
     depends_on:
       postgres:
         condition: service_healthy

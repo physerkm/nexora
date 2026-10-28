@@ -34,6 +34,8 @@ if (migrateOnly || app.Configuration.GetValue("Database:InitializeOnStartup", tr
     }
 }
 
+// First, so rate limiting, request context and logs all see the real client IP.
+app.UseReverseProxySupport(app.Configuration);
 app.UseMiddleware<CorrelationIdMiddleware>();
 app.UseSerilogRequestLogging(o =>
 {
