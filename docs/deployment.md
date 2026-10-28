@@ -62,6 +62,27 @@ Refresh token çerezi `Secure` olarak gönderilir. Tarayıcı bu çerezi yalnız
 
 Sertifikalar `caddy_data` volume'ünde tutulur. Bu volume'ü silmeyin, aksi halde Let's Encrypt'in istek sınırına takılabilirsiniz.
 
+## Veritabanı yedekleri
+
+`docker-compose.prod.yml` içindeki `backup` servisi ([deploy/backup.sh](../deploy/backup.sh)) her 24 saatte bir `pg_dump` ile tam yedek alır. Yedekler sunucuda projenin yanındaki `backups/` klasörüne yazılır (`nexora-YYYYMMDD-HHMMSS.dump`). Son 14 günün yedekleri tutulur, daha eskileri silinir. Bu süreler `.env` dosyasındaki `BACKUP_INTERVAL_HOURS` ve `BACKUP_KEEP_DAYS` ile değiştirilebilir.
+
+- Durumu görmek için: `docker compose -f docker-compose.yml -f docker-compose.prod.yml logs backup`.
+- **Yedekleri sunucunun dışına da kopyalayın.** Sunucu bozulursa ya da silinirse aynı diskteki yedekler de kaybolur. Sağlayıcının otomatik disk görüntüsü (snapshot) özelliğini açın ya da `backups/` klasörünü düzenli olarak başka bir yere kopyalayın (ör. `rclone` ile bir nesne depolama servisine).
+- Bir yedeğin gerçekten geri yüklenebildiğini ara sıra deneyin.
+
+### Yedekten geri yükleme
+
+Geri yükleme mevcut verinin yerine geçer. Önce API'yi durdurun, veritabanını boş olarak yeniden oluşturun ve yedeği yükleyin:
+
+```bash
+compose="docker compose -f docker-compose.yml -f docker-compose.prod.yml"
+$compose stop api backup
+$compose exec postgres dropdb -U nexora nexora
+$compose exec postgres createdb -U nexora nexora
+$compose exec -T postgres pg_restore -U nexora -d nexora --no-owner < backups/nexora-20261028-030000.dump
+$compose start api backup
+```
+
 ## Deployment akışı
 
 ```
