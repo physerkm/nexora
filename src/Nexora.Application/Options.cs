@@ -16,6 +16,19 @@ public sealed class JwtOptions
     [Range(1, 90)] public int RefreshTokenDays { get; set; } = 7;
 }
 
+public sealed class PasswordResetOptions
+{
+    public const string Section = "PasswordReset";
+
+    /// <summary>
+    /// Public address of the web app, used to build the link in the email (e.g. https://app.example.com).
+    /// When empty, reset emails are not sent.
+    /// </summary>
+    public string PublicUrl { get; set; } = "";
+
+    [Range(5, 24 * 60)] public int TokenMinutes { get; set; } = 60;
+}
+
 public sealed class TransactionOptions
 {
     public const string Section = "Transactions";

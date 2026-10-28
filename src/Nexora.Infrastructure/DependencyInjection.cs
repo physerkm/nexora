@@ -6,6 +6,7 @@ using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Nexora.Application.Abstractions;
 using Nexora.Domain.Entities;
 using Nexora.Infrastructure.BackgroundJobs;
+using Nexora.Infrastructure.Email;
 using Nexora.Infrastructure.Persistence;
 using Nexora.Infrastructure.Persistence.Seeding;
 using Nexora.Infrastructure.Repositories;
@@ -78,6 +79,19 @@ public static class DependencyInjection
         services.AddSingleton<MaintenanceRunner>();
         services.AddHostedService<OutboxProcessor>();
         services.AddHostedService<MaintenanceWorker>();
+
+        services.Configure<EmailOptions>(configuration.GetSection(EmailOptions.Section));
+        services.AddSingleton<EmailQueue>();
+        services.AddSingleton<IEmailQueue>(sp => sp.GetRequiredService<EmailQueue>());
+        services.AddHostedService<EmailDispatcher>();
+        if (string.IsNullOrWhiteSpace(configuration[$"{EmailOptions.Section}:{nameof(EmailOptions.SmtpHost)}"]))
+        {
+            services.AddSingleton<IEmailSender, LoggingEmailSender>();
+        }
+        else
+        {
+            services.AddSingleton<IEmailSender, SmtpEmailSender>();
+        }
 
         services.AddScoped<DemoDataSeeder>();
         services.AddScoped<DatabaseInitializer>();

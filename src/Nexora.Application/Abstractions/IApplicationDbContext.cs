@@ -18,6 +18,7 @@ public interface IApplicationDbContext
     DbSet<FeeRule> FeeRules { get; }
     DbSet<AuditLog> AuditLogs { get; }
     DbSet<RefreshToken> RefreshTokens { get; }
+    DbSet<PasswordResetToken> PasswordResetTokens { get; }
     DbSet<OutboxMessage> OutboxMessages { get; }
     DbSet<IdempotencyRecord> IdempotencyRecords { get; }
     DbSet<AppUser> Users { get; }

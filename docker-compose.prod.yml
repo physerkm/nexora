@@ -36,6 +36,7 @@ services:
     environment:
       # Caddy + nginx: both are trusted to report the client IP.
       ReverseProxy__ForwardLimit: "2"
+      PasswordReset__PublicUrl: https://${DOMAIN}
 
 volumes:
   caddy_data:

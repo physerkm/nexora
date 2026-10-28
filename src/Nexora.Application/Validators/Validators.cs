@@ -43,6 +43,20 @@ public sealed class ChangePasswordRequestValidator : AbstractValidator<ChangePas
     }
 }
 
+public sealed class ForgotPasswordRequestValidator : AbstractValidator<ForgotPasswordRequest>
+{
+    public ForgotPasswordRequestValidator() => RuleFor(x => x.Email).NotEmpty().EmailAddress().MaximumLength(256);
+}
+
+public sealed class ResetPasswordRequestValidator : AbstractValidator<ResetPasswordRequest>
+{
+    public ResetPasswordRequestValidator()
+    {
+        RuleFor(x => x.Token).NotEmpty().MaximumLength(200);
+        RuleFor(x => x.NewPassword).ValidPassword();
+    }
+}
+
 public sealed class CreateTenantRequestValidator : AbstractValidator<CreateTenantRequest>
 {
     public CreateTenantRequestValidator()

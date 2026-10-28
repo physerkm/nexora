@@ -49,6 +49,29 @@ public static class AuthEndpoints
             .WithDescription("Each refresh token is single-use. Re-using a rotated token revokes the whole token family.")
             .ProducesProblem(StatusCodes.Status401Unauthorized);
 
+        group.MapPost("/forgot-password", async (ForgotPasswordRequest request, AuthService auth, CancellationToken ct) =>
+            {
+                await auth.RequestPasswordResetAsync(request, ct);
+                return TypedResults.Accepted((string?)null);
+            })
+            .AllowAnonymous()
+            .RequireRateLimiting(RateLimitSetup.AuthPolicy)
+            .WithValidation<ForgotPasswordRequest>()
+            .WithSummary("Email a password reset link")
+            .WithDescription("Always returns 202, whether or not the email belongs to an account. The link is single-use and expires.");
+
+        group.MapPost("/reset-password", async (ResetPasswordRequest request, AuthService auth, HttpContext http, CancellationToken ct) =>
+            {
+                await auth.ResetPasswordAsync(request, ct);
+                ClearRefreshCookie(http);
+                return TypedResults.NoContent();
+            })
+            .AllowAnonymous()
+            .RequireRateLimiting(RateLimitSetup.AuthPolicy)
+            .WithValidation<ResetPasswordRequest>()
+            .WithSummary("Set a new password with the token from the reset email (ends all sessions)")
+            .ProducesProblem(StatusCodes.Status400BadRequest);
+
         group.MapPost("/logout", async (RefreshRequest? request, AuthService auth, HttpContext http, CancellationToken ct) =>
             {
                 var expires = long.TryParse(http.User.FindFirst("exp")?.Value, out var exp) ? DateTimeOffset.FromUnixTimeSeconds(exp) : (DateTimeOffset?)null;

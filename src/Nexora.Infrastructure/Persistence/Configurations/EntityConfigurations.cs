@@ -177,6 +177,19 @@ internal sealed class RefreshTokenConfiguration : IEntityTypeConfiguration<Refre
     }
 }
 
+internal sealed class PasswordResetTokenConfiguration : IEntityTypeConfiguration<PasswordResetToken>
+{
+    public void Configure(EntityTypeBuilder<PasswordResetToken> b)
+    {
+        b.ToTable("password_reset_tokens");
+        b.Property(x => x.TokenHash).HasMaxLength(64).IsRequired();
+        b.Property(x => x.CreatedByIp).HasMaxLength(64);
+        b.HasOne<AppUser>().WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
+        b.HasIndex(x => x.TokenHash).IsUnique().HasDatabaseName("ux_password_reset_tokens_hash");
+        b.HasIndex(x => x.UserId).HasDatabaseName("ix_password_reset_tokens_user");
+    }
+}
+
 internal sealed class OutboxMessageConfiguration : IEntityTypeConfiguration<OutboxMessage>
 {
     public void Configure(EntityTypeBuilder<OutboxMessage> b)

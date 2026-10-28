@@ -1,6 +1,9 @@
 using Microsoft.AspNetCore.Hosting;
+using System.Collections.Concurrent;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
+using Nexora.Application.Abstractions;
 using Nexora.Application.Common;
 using Nexora.Infrastructure.Persistence;
 using Npgsql;
@@ -70,7 +73,12 @@ public sealed class NexoraApiFactory : WebApplicationFactory<Program>, IAsyncLif
         builder.UseSetting("RateLimiting:AnonymousPermitsPerMinute", "100000");
         builder.UseSetting("Security:PasswordHashIterations", "1000");
         builder.UseSetting("Serilog:MinimumLevel:Default", "Warning");
+        builder.UseSetting("PasswordReset:PublicUrl", "https://app.nexora.test");
+        builder.ConfigureTestServices(services => services.AddSingleton<IEmailQueue>(Emails));
     }
+
+    /// <summary>Emails the API queued (nothing is sent in tests).</summary>
+    public CapturedEmails Emails { get; } = new();
 
     public ApiClient Anonymous() => new(CreateClient(new WebApplicationFactoryClientOptions { HandleCookies = false }));
 
@@ -114,6 +122,16 @@ public sealed class NexoraApiFactory : WebApplicationFactory<Program>, IAsyncLif
             await drop.ExecuteNonQueryAsync();
         }
     }
+}
+
+public sealed class CapturedEmails : IEmailQueue
+{
+    private readonly ConcurrentQueue<EmailMessage> _messages = new();
+
+    public void Enqueue(EmailMessage message) => _messages.Enqueue(message);
+
+    public IReadOnlyList<EmailMessage> To(string address) =>
+        _messages.Where(m => m.To.Equals(address, StringComparison.OrdinalIgnoreCase)).ToList();
 }
 
 [CollectionDefinition(Name)]

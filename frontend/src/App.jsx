@@ -11,6 +11,7 @@ import FeeRulesPage from './pages/FeeRulesPage';
 import AuditLogsPage from './pages/AuditLogsPage';
 import TenantsPage from './pages/TenantsPage';
 import SettingsPage from './pages/SettingsPage';
+import { ForgotPasswordPage, ResetPasswordPage } from './pages/PasswordResetPages';
 
 function Guard({ policy, children }) {
   const { can } = useAuth();
@@ -31,6 +32,8 @@ export default function App() {
   if (!user) {
     return (
       <Routes>
+        <Route path="forgot-password" element={<ForgotPasswordPage />} />
+        <Route path="reset-password" element={<ResetPasswordPage />} />
         <Route path="*" element={<LoginPage />} />
       </Routes>
     );
@@ -38,6 +41,8 @@ export default function App() {
 
   return (
     <Routes>
+      {/* A reset link opened while signed in still works (e.g. resetting another account on a shared computer). */}
+      <Route path="reset-password" element={<ResetPasswordPage />} />
       <Route element={<Layout />}>
         <Route index element={<Navigate to={can('viewReports') ? '/dashboard' : '/transactions'} replace />} />
         <Route path="dashboard" element={<Guard policy="viewReports"><DashboardPage /></Guard>} />

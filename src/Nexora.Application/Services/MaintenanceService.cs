@@ -5,7 +5,7 @@ using Nexora.Application.Abstractions;
 
 namespace Nexora.Application.Services;
 
-public sealed record MaintenanceReport(int ExpiredTransactions, int PurgedIdempotencyRecords, int PurgedRefreshTokens);
+public sealed record MaintenanceReport(int ExpiredTransactions, int PurgedIdempotencyRecords, int PurgedRefreshTokens, int PurgedPasswordResetTokens = 0);
 
 /// <summary>Periodic housekeeping, executed by the maintenance background worker in system scope.</summary>
 public sealed class MaintenanceService(
@@ -28,13 +28,17 @@ public sealed class MaintenanceService(
             .Where(t => t.ExpiresAt < tokenCutoff || (t.RevokedAt != null && t.RevokedAt < tokenCutoff))
             .ExecuteDeleteAsync(ct);
 
-        if (expired + purgedKeys + purgedTokens > 0)
+        var purgedResetTokens = await db.PasswordResetTokens
+            .Where(t => t.ExpiresAt < tokenCutoff || (t.UsedAt != null && t.UsedAt < tokenCutoff))
+            .ExecuteDeleteAsync(ct);
+
+        if (expired + purgedKeys + purgedTokens + purgedResetTokens > 0)
         {
             logger.LogInformation(
-                "Maintenance run: {ExpiredTransactions} transactions expired, {PurgedIdempotencyRecords} idempotency records and {PurgedRefreshTokens} refresh tokens purged",
-                expired, purgedKeys, purgedTokens);
+                "Maintenance run: {ExpiredTransactions} transactions expired, {PurgedIdempotencyRecords} idempotency records, {PurgedRefreshTokens} refresh tokens and {PurgedPasswordResetTokens} password reset tokens purged",
+                expired, purgedKeys, purgedTokens, purgedResetTokens);
         }
 
-        return new MaintenanceReport(expired, purgedKeys, purgedTokens);
+        return new MaintenanceReport(expired, purgedKeys, purgedTokens, purgedResetTokens);
     }
 }
