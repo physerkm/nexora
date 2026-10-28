@@ -47,11 +47,11 @@ Migration veritabanında `__ef_migrations_history` tablosuna kaydedilir.
 
 Refresh token çerezi `Secure` olarak gönderilir. Tarayıcı bu çerezi yalnızca HTTPS üzerinden saklar (`localhost` hariç). Bu yüzden uygulama sunucuda düz HTTP ile çalışırsa kullanıcılar sayfa yenilendiğinde ya da access token süresi dolduğunda (15 dakika) oturumdan düşer.
 
-`docker-compose.prod.yml`, önüne [Caddy](https://caddyserver.com) ekler. Caddy, alan adı için ücretsiz Let's Encrypt sertifikasını kendisi alır ve yeniler. HTTP isteklerini de HTTPS'e yönlendirir. Bu dosyayla `web` (3000) ve `api` (8080) portları dışarı açılmaz, uygulamaya yalnızca Caddy üzerinden erişilir.
+`docker-compose.prod.yml`, önüne [Caddy](https://caddyserver.com) ekler. Caddy, alan adı için ücretsiz Let's Encrypt sertifikasını kendisi alır ve yeniler. HTTP isteklerini de HTTPS'e yönlendirir. Bu dosyayla `web` (3000) ve `api` (8080) portları dışarı açılmaz, uygulamaya yalnızca Caddy üzerinden erişilir. `postgres` (5432) ve `redis` (6379) portları da hiç açılmaz, bunlara yalnızca diğer container'lar bağlanabilir. (`docker-compose.yml` tek başına kullanıldığında bu iki port yalnızca `127.0.0.1` üzerinden açılır.) Docker, yayınlanan portlar için sunucunun güvenlik duvarını (ör. `ufw`) atlayabildiği için bu ayar önemlidir.
 
 1. Alan adının DNS kaydında bir `A` kaydı oluşturun ve sunucunun IP adresini girin.
 2. Sunucuda 80 ve 443 portlarının dışarıdan erişilebilir olduğundan emin olun.
-3. `.env` dosyasına alan adını yazın: `DOMAIN=app.example.com`.
+3. `.env` dosyasına alan adını yazın: `DOMAIN=app.example.com`. `POSTGRES_PASSWORD` için de uzun, rastgele bir parola belirleyin (veritabanı ilk kez oluşturulurken uygulanır).
 4. Başlatın:
 
    ```bash
