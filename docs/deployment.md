@@ -43,6 +43,25 @@ Kurallar:
 
 Migration veritabanında `__ef_migrations_history` tablosuna kaydedilir.
 
+## Sunucuya HTTPS ile kurulum
+
+Refresh token çerezi `Secure` olarak gönderilir. Tarayıcı bu çerezi yalnızca HTTPS üzerinden saklar (`localhost` hariç). Bu yüzden uygulama sunucuda düz HTTP ile çalışırsa kullanıcılar sayfa yenilendiğinde ya da access token süresi dolduğunda (15 dakika) oturumdan düşer.
+
+`docker-compose.prod.yml`, önüne [Caddy](https://caddyserver.com) ekler. Caddy, alan adı için ücretsiz Let's Encrypt sertifikasını kendisi alır ve yeniler. HTTP isteklerini de HTTPS'e yönlendirir. Bu dosyayla `web` (3000) ve `api` (8080) portları dışarı açılmaz, uygulamaya yalnızca Caddy üzerinden erişilir.
+
+1. Alan adının DNS kaydında bir `A` kaydı oluşturun ve sunucunun IP adresini girin.
+2. Sunucuda 80 ve 443 portlarının dışarıdan erişilebilir olduğundan emin olun.
+3. `.env` dosyasına alan adını yazın: `DOMAIN=app.example.com`.
+4. Başlatın:
+
+   ```bash
+   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+   ```
+
+5. `https://app.example.com` adresini açın. İlk açılışta sertifikanın alınması birkaç saniye sürebilir. Sorun olursa: `docker compose logs caddy`.
+
+Sertifikalar `caddy_data` volume'ünde tutulur. Bu volume'ü silmeyin, aksi halde Let's Encrypt'in istek sınırına takılabilirsiniz.
+
 ## Deployment akışı
 
 ```

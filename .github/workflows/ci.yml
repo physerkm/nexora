@@ -144,3 +144,5 @@ jobs:
           cache-to: type=gha,mode=max,scope=web
       - name: Compose file is valid
         run: JWT_SIGNING_KEY=ci-placeholder-signing-key-0123456789abcdef docker compose config --quiet
+      - name: Production compose file is valid
+        run: JWT_SIGNING_KEY=ci-placeholder-signing-key-0123456789abcdef DOMAIN=app.example.com docker compose -f docker-compose.yml -f docker-compose.prod.yml config --quiet
