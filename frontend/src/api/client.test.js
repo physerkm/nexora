@@ -76,6 +76,11 @@ describe('api client', () => {
     await expect(api('/auth/logout', { method: 'POST', body: {} })).resolves.toBeNull();
   });
 
+  it('returns null for a 202 Accepted without a body', async () => {
+    server.use(http.post('/api/v1/auth/forgot-password', () => new HttpResponse(null, { status: 202 })));
+    await expect(api('/auth/forgot-password', { method: 'POST', body: { email: 'a@b.test' } })).resolves.toBeNull();
+  });
+
   it('rotates an expired access token once and retries the request', async () => {
     const calls = protectedList('fresh');
     const refresh = refreshEndpoint(() => HttpResponse.json(authResponse(makeUser('Manager'), 'fresh')));

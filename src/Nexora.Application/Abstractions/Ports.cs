@@ -60,3 +60,19 @@ public interface IIntegrationEventPublisher
 {
     Task PublishAsync(OutboxMessage message, CancellationToken ct);
 }
+
+public sealed record EmailMessage(string To, string Subject, string Body);
+
+/// <summary>
+/// Queues an email for a background sender, so a request's response time does not depend on the mail server
+/// (and, for "forgot password", does not reveal whether the address belongs to an account).
+/// </summary>
+public interface IEmailQueue
+{
+    void Enqueue(EmailMessage message);
+}
+
+public interface IEmailSender
+{
+    Task SendAsync(EmailMessage message, CancellationToken ct);
+}

@@ -11,6 +11,7 @@ public static class DependencyInjection
     public static IServiceCollection AddApplication(this IServiceCollection services, IConfiguration configuration)
     {
         services.AddOptions<JwtOptions>().Bind(configuration.GetSection(JwtOptions.Section)).ValidateDataAnnotations().ValidateOnStart();
+        services.AddOptions<PasswordResetOptions>().Bind(configuration.GetSection(PasswordResetOptions.Section)).ValidateDataAnnotations();
         services.AddOptions<TransactionOptions>().Bind(configuration.GetSection(TransactionOptions.Section)).ValidateDataAnnotations();
         services.AddOptions<BackgroundJobOptions>().Bind(configuration.GetSection(BackgroundJobOptions.Section)).ValidateDataAnnotations();
 

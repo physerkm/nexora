@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { Alert, Box, Button, Card, CardContent, Chip, Stack, TextField, Typography } from '@mui/material';
+import { Link as RouterLink } from 'react-router-dom';
+import { Alert, Box, Button, Card, CardContent, Chip, Link, Stack, TextField, Typography } from '@mui/material';
 import { useAuth } from '../auth/AuthContext';
 import { errorMessage } from '../utils/format';
 
@@ -45,6 +46,7 @@ export default function LoginPage() {
             <TextField label="E-posta" type="email" value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="username" required />
             <TextField label="Parola" type="password" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="current-password" required />
             <Button type="submit" variant="contained" size="large" disabled={busy}>Giriş yap</Button>
+            <Link component={RouterLink} to="/forgot-password" variant="body2" sx={{ alignSelf: 'center' }}>Parolamı unuttum</Link>
             <Box>
               <Typography variant="caption" color="text.secondary">Demo hesaplar (parola: Nexora#2026)</Typography>
               <Stack direction="row" sx={{ flexWrap: 'wrap', gap: 1, mt: 1 }}>

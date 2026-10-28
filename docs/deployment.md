@@ -8,6 +8,7 @@ Migration'lar `src/Nexora.Infrastructure/Persistence/Migrations` altında, EF Co
 |---|---|
 | `InitialCreate` | Tüm tablolar, FK'ler, indeksler (trigram GIN, kısmi, bileşik, `NULLS NOT DISTINCT`), `pg_trgm` eklentisi |
 | `AuditLogImmutability` | `audit_logs` üzerinde UPDATE/DELETE/TRUNCATE engelleyen trigger |
+| `PasswordResetTokens` | "Parolamı unuttum" bağlantıları için `password_reset_tokens` tablosu (yalnızca SHA-256 özetleri) |
 
 ### Yeni migration eklemek
 
@@ -119,3 +120,22 @@ main    ─▶ CD (önerilen):
 - **Loglar:** Production'da stdout'a JSON (CLEF) yazılır. Her satırda `CorrelationId`, `TenantId` ve `UserId` vardır. Loki, ELK veya Seq ile toplanabilir.
 - **Health:** `/health/live` liveness probe, `/health/ready` readiness probe olarak kullanılır.
 - **Takip edilmesi gereken metrikler:** `Failed` durumundaki outbox mesajı sayısı ve 429 oranı.
+
+## E-posta ve "Parolamı unuttum"
+
+Giriş ekranındaki "Parolamı unuttum" bağlantısı, kullanıcıya tek kullanımlık ve 60 dakika geçerli bir parola sıfırlama bağlantısı gönderir. Parola sıfırlanınca kullanıcının tüm oturumları kapatılır. Aynı hesaba en fazla dakikada bir e-posta gönderilir. Adres kayıtlı olsun ya da olmasın API aynı cevabı verir, böylece hangi adreslerin kayıtlı olduğu öğrenilemez.
+
+E-posta göndermek için `.env` dosyasına bir SMTP sunucusu girin (ör. Brevo, Mailgun, Amazon SES ya da kendi alan adınızın posta sunucusu):
+
+```bash
+SMTP_HOST=smtp.example.com
+SMTP_PORT=587            # STARTTLS
+SMTP_USERNAME=...
+SMTP_PASSWORD=...
+EMAIL_FROM=no-reply@example.com
+```
+
+- `SMTP_HOST` boşsa e-posta gönderilmez. Development ortamında e-postanın içeriği (bağlantı dahil) log'a yazılır, diğer ortamlarda yalnızca bir uyarı yazılır.
+- E-postadaki bağlantının adresi `PasswordReset:PublicUrl` ayarından gelir. `docker-compose.prod.yml` bunu `https://<DOMAIN>` yapar, `docker-compose.yml` tek başına `PUBLIC_URL` değerini (varsayılan `http://localhost:3000`) kullanır.
+- E-postalar arka planda, bellekteki bir kuyruktan gönderilir. API yeniden başlarken kuyrukta bekleyen bir e-posta kaybolabilir; kullanıcı bağlantıyı tekrar isteyebilir.
+- Gönderilen e-postaların spam klasörüne düşmemesi için gönderen alan adında SPF ve DKIM kayıtlarını tanımlayın (SMTP sağlayıcınız bunları nasıl ekleyeceğinizi gösterir).

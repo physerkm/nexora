@@ -52,6 +52,13 @@ services:
       Database__InitializeOnStartup: "false"
       # Requests reach the API through the web container's nginx (see docs/deployment.md).
       ReverseProxy__ForwardLimit: "1"
+      # "Forgot password" emails: link target and SMTP server (without SMTP_HOST no email is sent).
+      PasswordReset__PublicUrl: ${PUBLIC_URL:-http://localhost:3000}
+      Email__SmtpHost: ${SMTP_HOST:-}
+      Email__SmtpPort: ${SMTP_PORT:-587}
+      Email__Username: ${SMTP_USERNAME:-}
+      Email__Password: ${SMTP_PASSWORD:-}
+      Email__FromAddress: ${EMAIL_FROM:-no-reply@nexora.local}
     depends_on:
       postgres:
         condition: service_healthy

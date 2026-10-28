@@ -18,13 +18,17 @@ public sealed class AuthService(
     ITokenRevocationStore revocations,
     SessionValidator sessions,
     IOptions<JwtOptions> jwtOptions,
+    IOptions<PasswordResetOptions> resetOptions,
+    IEmailQueue emails,
     TimeProvider clock,
     AuditTrail audit,
     RequestContext context,
     ILogger<AuthService> logger)
 {
     private static readonly UnauthorizedException InvalidCredentials = new("invalid_credentials", "Invalid email or password.");
+    private static readonly TimeSpan ResetRequestInterval = TimeSpan.FromMinutes(1);
     private readonly JwtOptions _jwt = jwtOptions.Value;
+    private readonly PasswordResetOptions _reset = resetOptions.Value;
 
     public async Task<AuthResponse> LoginAsync(LoginRequest request, CancellationToken ct)
     {
@@ -160,6 +164,110 @@ public sealed class AuthService(
         await db.SaveChangesAsync(ct);
     }
 
+    /// <summary>
+    /// "Forgot password": emails a single-use reset link. The caller always gets the same answer, whether or not
+    /// the address belongs to an account, so the endpoint cannot be used to find out which emails are registered.
+    /// </summary>
+    public async Task RequestPasswordResetAsync(ForgotPasswordRequest request, CancellationToken ct)
+    {
+        var now = clock.GetUtcNow();
+        var user = await users.FindByEmailAsync(request.Email);
+        var skipReason = user is null ? "unknown_email" : await ResetSkipReasonAsync(user, now, ct);
+
+        if (user is null || skipReason is not null)
+        {
+            audit.Record("auth.password_reset_requested", "User", user?.Id.ToString() ?? request.Email.ToLowerInvariant(),
+                new { sent = false, reason = skipReason }, user?.TenantId, user?.Id, user?.Email ?? request.Email);
+            await db.SaveChangesAsync(ct);
+            return;
+        }
+
+        var rawToken = TokenHasher.NewOpaqueToken();
+        var lifetime = TimeSpan.FromMinutes(_reset.TokenMinutes);
+        db.PasswordResetTokens.Add(PasswordResetToken.Issue(user.Id, TokenHasher.Sha256(rawToken), now, lifetime, context.IpAddress));
+        audit.Record("auth.password_reset_requested", "User", user.Id, new { sent = true }, user.TenantId, user.Id, user.Email);
+        await db.SaveChangesAsync(ct);
+
+        var link = $"{_reset.PublicUrl.TrimEnd('/')}/reset-password?token={rawToken}";
+        emails.Enqueue(new EmailMessage(user.Email!, "Nexora parola sıfırlama", $"""
+            Merhaba {user.FullName},
+
+            Nexora hesabınız için parola sıfırlama isteği aldık. Yeni parola belirlemek için bu bağlantıyı açın:
+
+            {link}
+
+            Bağlantı {_reset.TokenMinutes} dakika geçerlidir ve yalnızca bir kez kullanılabilir.
+
+            Bu isteği siz yapmadıysanız bu e-postayı yok sayabilirsiniz. Parolanız değişmez.
+            """));
+    }
+
+    /// <summary>Sets a new password from a reset link and ends every session of the user.</summary>
+    public async Task ResetPasswordAsync(ResetPasswordRequest request, CancellationToken ct)
+    {
+        var invalidToken = new BadRequestException("invalid_reset_token", "The password reset link is invalid or has expired.");
+        var now = clock.GetUtcNow();
+
+        var hash = TokenHasher.Sha256(request.Token);
+        var token = await db.PasswordResetTokens.FirstOrDefaultAsync(t => t.TokenHash == hash, ct);
+        if (token is null || !token.IsUsable(now))
+        {
+            throw invalidToken;
+        }
+
+        var user = await users.FindByIdAsync(token.UserId.ToString()) ?? throw invalidToken;
+        try
+        {
+            await EnsureCanSignInAsync(user, ct);
+        }
+        catch (UnauthorizedException)
+        {
+            throw invalidToken;
+        }
+
+        // The same password rules Identity applies everywhere else.
+        var errors = new List<string>();
+        foreach (var validator in users.PasswordValidators)
+        {
+            var result = await validator.ValidateAsync(users, user, request.NewPassword);
+            errors.AddRange(result.Errors.Select(e => e.Description));
+        }
+
+        if (errors.Count > 0)
+        {
+            throw new BadRequestException("password_reset_failed", string.Join(" ", errors));
+        }
+
+        // Void this link and any other outstanding one.
+        var outstanding = await db.PasswordResetTokens.Where(t => t.UserId == user.Id && t.UsedAt == null).ToListAsync(ct);
+        outstanding.ForEach(t => t.MarkUsed(now));
+
+        user.PasswordHash = users.PasswordHasher.HashPassword(user, request.NewPassword);
+        user.AccessFailedCount = 0;
+        user.LockoutEnd = null;
+        await RevokeRefreshTokensAsync(user.Id, "password_reset", ct);
+        audit.Record("auth.password_reset", "User", user.Id, null, user.TenantId, user.Id, user.Email);
+
+        try
+        {
+            // Renews the security stamp (invalidating every access token) and saves all of the changes above.
+            // Two requests racing with the same link: the second one fails on the user's concurrency stamp.
+            var updated = await users.UpdateSecurityStampAsync(user);
+            if (!updated.Succeeded)
+            {
+                throw invalidToken;
+            }
+
+            await db.SaveChangesAsync(ct);
+        }
+        catch (ConcurrencyException)
+        {
+            throw invalidToken;
+        }
+
+        await sessions.InvalidateAsync(user.Id, ct);
+    }
+
     public async Task<UserProfileDto> GetProfileAsync(CancellationToken ct)
     {
         var user = await FindCurrentUserAsync();
@@ -217,6 +325,28 @@ public sealed class AuthService(
                 throw new UnauthorizedException("tenant_suspended", "The company account is suspended.");
             }
         }
+    }
+
+    private async Task<string?> ResetSkipReasonAsync(AppUser user, DateTimeOffset now, CancellationToken ct)
+    {
+        try
+        {
+            await EnsureCanSignInAsync(user, ct);
+        }
+        catch (UnauthorizedException ex)
+        {
+            return ex.Code;
+        }
+
+        if (string.IsNullOrWhiteSpace(_reset.PublicUrl))
+        {
+            logger.LogError("Password reset email not sent: {Setting} is not configured", $"{PasswordResetOptions.Section}:{nameof(PasswordResetOptions.PublicUrl)}");
+            return "public_url_not_configured";
+        }
+
+        // At most one email per minute per account, so the form cannot be used to flood someone's inbox.
+        var since = now - ResetRequestInterval;
+        return await db.PasswordResetTokens.AnyAsync(t => t.UserId == user.Id && t.CreatedAt > since, ct) ? "too_frequent" : null;
     }
 
     private async Task<int> RevokeFamilyAsync(Guid familyId, string reason, CancellationToken ct)

@@ -93,7 +93,9 @@ export async function api(path, { method = 'GET', body, idempotencyKey, raw = fa
     throw new ApiError(res.status, problem);
   }
 
-  return res.status === 204 ? null : res.json();
+  // 204 and bodiless responses such as 202 Accepted resolve to null.
+  const text = res.status === 204 ? '' : await res.text();
+  return text ? JSON.parse(text) : null;
 }
 
 export function toQuery(params) {
