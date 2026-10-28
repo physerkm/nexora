@@ -9,8 +9,9 @@ services:
       POSTGRES_DB: nexora
       POSTGRES_USER: nexora
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-nexora}
+    # Bound to localhost only: local tools (psql, tools/tabformer) can connect, other machines cannot.
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5432:5432"
     volumes:
       # PostgreSQL 18+ images keep data in a version-specific subfolder (/var/lib/postgresql/18/docker),
       # so the volume is mounted one level up. A volume created by a 17 image is not compatible.
@@ -26,7 +27,7 @@ services:
     profiles: ["cache"]
     command: ["redis-server", "--save", "", "--appendonly", "no"]
     ports:
-      - "6379:6379"
+      - "127.0.0.1:6379:6379"
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s

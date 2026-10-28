@@ -2,6 +2,14 @@
 #   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
 # Requires DOMAIN in .env and a DNS A record pointing the domain to this server.
 services:
+  # The database and cache are reachable only from the other containers, never from outside.
+  postgres:
+    ports: !reset []
+    restart: unless-stopped
+
+  redis:
+    ports: !reset []
+
   caddy:
     image: caddy:2.10-alpine
     restart: unless-stopped
