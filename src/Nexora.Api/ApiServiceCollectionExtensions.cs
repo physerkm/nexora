@@ -42,6 +42,7 @@ public static class ApiServiceCollectionExtensions
         services.AddExceptionHandler<GlobalExceptionHandler>();
 
         services.AddHttpContextAccessor();
+        services.AddReverseProxySupport(configuration);
         services.AddScoped<IAccessPolicy, HttpAccessPolicy>();
         services.AddNexoraAuthentication();
         services.AddNexoraAuthorization();

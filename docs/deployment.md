@@ -91,7 +91,7 @@ main    ─▶ CD (önerilen):
 - Birden çok instance varken `Redis:ConnectionString` tanımlayın. Böylece access token iptal listesi, oturum durumu ve rapor cache'i tüm instance'lar arasında paylaşılır.
 - Outbox dağıtıcısı `FOR UPDATE SKIP LOCKED`, bakım işi PostgreSQL advisory lock kullanır. Her ikisi de çok instance'lı ortamda güvenlidir.
 - Rate limiter instance başına çalışır. Global bir limit gerekiyorsa API gateway'de (ör. nginx, Envoy) uygulayın.
-- Proxy arkasında çalışırken gerçek istemci IP'si için `ForwardedHeaders` middleware'ini proxy'nin IP aralığıyla yapılandırın.
+- Proxy arkasında API her isteği proxy'nin IP'sinden geliyor görür. Bu durumda rate limit tüm kullanıcıları tek istemci sayar ve audit log'a yanlış IP yazılır. `ReverseProxy:ForwardLimit` API'nin önündeki proxy sayısıdır ve gerçek istemci IP'si `X-Forwarded-For` başlığından alınır. `docker-compose.yml` bu değeri `1` (nginx), `docker-compose.prod.yml` ise `2` (Caddy + nginx) yapar. Yalnızca `ReverseProxy:TrustedNetworks` içindeki adreslere güvenilir (varsayılan: özel ağlar `10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16` ve loopback).
 
 ### Gözlemlenebilirlik
 
