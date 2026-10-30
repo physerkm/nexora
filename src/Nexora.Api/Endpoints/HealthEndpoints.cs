@@ -1,6 +1,8 @@
 using System.Text.Json;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
+using Microsoft.Extensions.Options;
+using Nexora.Application;
 
 namespace Nexora.Api.Endpoints;
 
@@ -18,6 +20,11 @@ public static class HealthEndpoints
             .AllowAnonymous();
 
         app.MapHealthChecks("/health/ready", new HealthCheckOptions { Predicate = c => c.Tags.Contains("ready"), ResponseWriter = WriteAsync })
+            .AllowAnonymous();
+
+        // Lets the sign-in page offer the demo accounts only where they are meant to be used.
+        app.MapGet("/api/v1/demo", (IOptions<DemoOptions> demo) => TypedResults.Ok(new DemoStatus(demo.Value.Enabled)))
+            .WithTags("Auth")
             .AllowAnonymous();
 
         return app;
@@ -39,3 +46,5 @@ public static class HealthEndpoints
         });
     }
 }
+
+public sealed record DemoStatus(bool Enabled);

@@ -12,6 +12,7 @@ public static class DependencyInjection
     {
         services.AddOptions<JwtOptions>().Bind(configuration.GetSection(JwtOptions.Section)).ValidateDataAnnotations().ValidateOnStart();
         services.AddOptions<PasswordResetOptions>().Bind(configuration.GetSection(PasswordResetOptions.Section)).ValidateDataAnnotations();
+        services.AddOptions<DemoOptions>().Bind(configuration.GetSection(DemoOptions.Section));
         services.AddOptions<TransactionOptions>().Bind(configuration.GetSection(TransactionOptions.Section)).ValidateDataAnnotations();
         services.AddOptions<BackgroundJobOptions>().Bind(configuration.GetSection(BackgroundJobOptions.Section)).ValidateDataAnnotations();
 

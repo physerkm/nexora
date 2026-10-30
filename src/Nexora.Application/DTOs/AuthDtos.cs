@@ -19,7 +19,8 @@ public sealed record UserProfileDto(
     IReadOnlyCollection<string> Roles,
     Guid? TenantId,
     string? TenantName,
-    Guid? BranchId);
+    Guid? BranchId,
+    bool ReadOnly = false); // demo mode: this account can look but not change anything
 
 public sealed record AuthResponse(
     string AccessToken,

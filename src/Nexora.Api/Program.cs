@@ -61,6 +61,7 @@ if (app.Configuration.GetValue("OpenApi:Enabled", true))
 app.UseCors();
 app.UseAuthentication();
 app.UseMiddleware<RequestContextMiddleware>();
+app.UseMiddleware<DemoModeMiddleware>();
 app.UseRateLimiter();
 app.UseAuthorization();
 

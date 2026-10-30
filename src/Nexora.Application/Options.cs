@@ -46,3 +46,22 @@ public sealed class BackgroundJobOptions
     [Range(1, 1440)] public int MaintenanceIntervalMinutes { get; set; } = 5;
     [Range(1, 500)] public int OutboxBatchSize { get; set; } = 25;
 }
+
+/// <summary>
+/// Public demo. When enabled, every account except <see cref="OwnerEmails"/> can look at everything but change
+/// nothing: the API refuses their writes (DemoModeMiddleware), and their failed sign-ins never lock the account.
+/// </summary>
+public sealed class DemoOptions
+{
+    public const string Section = "Demo";
+
+    public bool Enabled { get; set; }
+
+    /// <summary>Comma-separated emails that keep full access in demo mode (the operator's own accounts).</summary>
+    public string OwnerEmails { get; set; } = "";
+
+    public bool IsReadOnly(string? email) =>
+        Enabled && !OwnerEmails
+            .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Contains(email ?? "", StringComparer.OrdinalIgnoreCase);
+}
