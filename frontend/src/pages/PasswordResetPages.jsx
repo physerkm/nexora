@@ -1,27 +1,19 @@
 import { useState } from 'react';
 import { Link as RouterLink, useSearchParams } from 'react-router-dom';
-import { Alert, Box, Button, Card, CardContent, Link, Stack, TextField, Typography } from '@mui/material';
+import { Alert, Box, Button, Link, Stack, TextField, Typography } from '@mui/material';
+import ArrowBackIcon from '@mui/icons-material/ArrowBackRounded';
+import CheckIcon from '@mui/icons-material/CheckCircleRounded';
+import CircleIcon from '@mui/icons-material/RadioButtonUncheckedRounded';
 import { api } from '../api/client';
+import AuthLayout from '../components/AuthLayout';
+import PasswordField from '../components/PasswordField';
 import { errorMessage } from '../utils/format';
 
-function AuthCard({ title, subtitle, onSubmit, children }) {
-  return (
-    <Box sx={{ minHeight: '100vh', display: 'grid', placeItems: 'center', p: 2, bgcolor: 'background.default' }}>
-      <Card sx={{ width: '100%', maxWidth: 420 }}>
-        <CardContent component="form" onSubmit={onSubmit} sx={{ p: 4 }}>
-          <Stack spacing={2.5}>
-            <Box>
-              <Typography variant="h5" component="h1">{title}</Typography>
-              <Typography variant="body2" color="text.secondary">{subtitle}</Typography>
-            </Box>
-            {children}
-            <Link component={RouterLink} to="/" variant="body2" sx={{ alignSelf: 'center' }}>Giriş ekranına dön</Link>
-          </Stack>
-        </CardContent>
-      </Card>
-    </Box>
-  );
-}
+const BackToLogin = (
+  <Link component={RouterLink} to="/" variant="body2" sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.75 }}>
+    <ArrowBackIcon sx={{ fontSize: 16 }} /> Giriş ekranına dön
+  </Link>
+);
 
 export function ForgotPasswordPage() {
   const [email, setEmail] = useState('');
@@ -44,23 +36,52 @@ export function ForgotPasswordPage() {
   };
 
   return (
-    <AuthCard title="Parolamı unuttum" subtitle="E-posta adresinize parola sıfırlama bağlantısı gönderelim." onSubmit={submit}>
+    <AuthLayout
+      title="Parolamı unuttum"
+      subtitle="Hesabınıza kayıtlı e-posta adresini girin; parola sıfırlama bağlantısı gönderelim."
+      onSubmit={sent ? undefined : submit}
+      footer={BackToLogin}
+    >
       {sent ? (
         <Alert severity="success">
-          Bu adres kayıtlıysa birkaç dakika içinde bir parola sıfırlama bağlantısı gelecek. Gelen kutunuzu ve istenmeyen e-postalar klasörünü kontrol edin.
+          Bu adres kayıtlıysa birkaç dakika içinde bir parola sıfırlama bağlantısı gelecek. Gelen kutunuzu ve istenmeyen
+          e-postalar klasörünü kontrol edin.
         </Alert>
       ) : (
         <>
           {error && <Alert severity="error">{errorMessage(error)}</Alert>}
           <TextField label="E-posta" type="email" value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="username" required autoFocus />
-          <Button type="submit" variant="contained" size="large" disabled={busy}>Bağlantı gönder</Button>
+          <Button type="submit" variant="contained" size="large" loading={busy}>Bağlantı gönder</Button>
         </>
       )}
-    </AuthCard>
+    </AuthLayout>
   );
 }
 
-const PASSWORD_RULES = 'En az 10 karakter; büyük harf, küçük harf, rakam ve sembol içermeli.';
+// Mirrors the API's Identity password options; the server stays the authority.
+const PASSWORD_RULES = [
+  ['En az 10 karakter', (p) => p.length >= 10],
+  ['Büyük harf', (p) => /\p{Lu}/u.test(p)],
+  ['Küçük harf', (p) => /\p{Ll}/u.test(p)],
+  ['Rakam', (p) => /\d/.test(p)],
+  ['Sembol', (p) => /[^\p{L}\d]/u.test(p)],
+];
+
+function PasswordChecklist({ password }) {
+  return (
+    <Box component="ul" aria-label="Parola kuralları" sx={{ listStyle: 'none', m: 0, p: 0, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 0.75 }}>
+      {PASSWORD_RULES.map(([label, test]) => {
+        const ok = test(password);
+        return (
+          <Box component="li" key={label} sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
+            {ok ? <CheckIcon sx={{ fontSize: 16, color: 'success.main' }} /> : <CircleIcon sx={{ fontSize: 16, color: 'text.disabled' }} />}
+            <Typography variant="caption" color={ok ? 'text.primary' : 'text.secondary'}>{label}</Typography>
+          </Box>
+        );
+      })}
+    </Box>
+  );
+}
 
 export function ResetPasswordPage() {
   const [params] = useSearchParams();
@@ -91,28 +112,37 @@ export function ResetPasswordPage() {
 
   if (done) {
     return (
-      <AuthCard title="Parola değiştirildi" subtitle="Yeni parolanızla giriş yapabilirsiniz.">
+      <AuthLayout title="Parola değiştirildi" subtitle="Yeni parolanızla giriş yapabilirsiniz.">
         <Alert severity="success">Parolanız güncellendi. Güvenliğiniz için tüm cihazlardaki oturumlar kapatıldı.</Alert>
-      </AuthCard>
+        <Button component={RouterLink} to="/" variant="contained" size="large">Giriş yap</Button>
+      </AuthLayout>
     );
   }
 
   if (invalidLink) {
     return (
-      <AuthCard title="Bağlantı geçersiz" subtitle="Parola sıfırlama bağlantısı kullanılamıyor.">
+      <AuthLayout title="Bağlantı geçersiz" subtitle="Parola sıfırlama bağlantısı kullanılamıyor." footer={BackToLogin}>
         <Alert severity="error">Bu bağlantı geçersiz, daha önce kullanılmış ya da süresi dolmuş. Yeni bir bağlantı isteyin.</Alert>
-        <Button component={RouterLink} to="/forgot-password" variant="contained">Yeni bağlantı iste</Button>
-      </AuthCard>
+        <Button component={RouterLink} to="/forgot-password" variant="contained" size="large">Yeni bağlantı iste</Button>
+      </AuthLayout>
     );
   }
 
   return (
-    <AuthCard title="Yeni parola belirle" subtitle={PASSWORD_RULES} onSubmit={submit}>
+    <AuthLayout title="Yeni parola belirle" subtitle="Hesabınız için güçlü bir parola seçin." onSubmit={submit} footer={BackToLogin}>
       {error && <Alert severity="error">{errorMessage(error)}</Alert>}
-      <TextField label="Yeni parola" type="password" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="new-password" required autoFocus />
-      <TextField label="Yeni parola (tekrar)" type="password" value={confirm} onChange={(e) => setConfirm(e.target.value)} autoComplete="new-password" required
-        error={mismatch} helperText={mismatch ? 'Parolalar aynı değil.' : ' '} />
-      <Button type="submit" variant="contained" size="large" disabled={busy || mismatch}>Parolayı kaydet</Button>
-    </AuthCard>
+      <Stack spacing={1.5}>
+        <PasswordField
+          label="Yeni parola" value={password} onChange={(e) => setPassword(e.target.value)}
+          autoComplete="new-password" required autoFocus
+        />
+        <PasswordChecklist password={password} />
+      </Stack>
+      <PasswordField
+        label="Yeni parola (tekrar)" value={confirm} onChange={(e) => setConfirm(e.target.value)}
+        autoComplete="new-password" required error={mismatch} helperText={mismatch ? 'Parolalar aynı değil.' : ' '}
+      />
+      <Button type="submit" variant="contained" size="large" loading={busy} disabled={mismatch}>Parolayı kaydet</Button>
+    </AuthLayout>
   );
 }
