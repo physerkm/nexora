@@ -86,7 +86,7 @@ describe('role-based UI', () => {
     expect(nav.queryByText('Denetim kayıtları')).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Yeni işlem' })).toBeInTheDocument();
     // Operators cannot export reports.
-    expect(screen.queryByRole('button', { name: 'CSV' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Dışa aktar' })).not.toBeInTheDocument();
   });
 
   it('redirects a direct visit to a forbidden page', async () => {

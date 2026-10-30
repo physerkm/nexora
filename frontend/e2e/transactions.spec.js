@@ -13,7 +13,7 @@ test.describe('transaction lifecycle', () => {
     await expect(dialog.getByRole('combobox', { name: 'Şube' })).toContainText('İstanbul Merkez');
     await dialog.getByRole('spinbutton', { name: 'Tutar' }).fill('1234.56');
     await dialog.getByLabel('Karşı taraf').fill(counterparty);
-    await expect(dialog.getByText(/Ücret:/)).toBeVisible();
+    await expect(dialog.getByText('İşlem ücreti')).toBeVisible();
     await dialog.getByRole('button', { name: 'Oluştur' }).click();
     await expect(page.getByText(/oluşturuldu$/)).toBeVisible();
 

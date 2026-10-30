@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import {
-  Alert, Button, Dialog, DialogActions, DialogContent, DialogTitle, MenuItem, Stack, TextField, Typography,
+  Alert, Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, Divider, MenuItem, Stack, TextField, Typography,
 } from '@mui/material';
 import { api, newIdempotencyKey } from '../api/client';
 import { useAuth } from '../auth/AuthContext';
@@ -8,6 +8,15 @@ import { useDebounced } from '../components/Common';
 import { CURRENCIES, errorMessage, money, TYPES } from '../utils/format';
 
 const EMPTY = { branchId: '', type: 'Payment', amount: '', currency: 'TRY', counterpartyName: '', description: '' };
+
+function QuoteRow({ label, value, strong }) {
+  return (
+    <Stack direction="row" sx={{ justifyContent: 'space-between', py: 0.5 }}>
+      <Typography variant="body2" color={strong ? 'text.primary' : 'text.secondary'} sx={{ fontWeight: strong ? 600 : 400 }}>{label}</Typography>
+      <Typography variant="body2" sx={{ fontWeight: strong ? 600 : 500, fontVariantNumeric: 'tabular-nums' }}>{value}</Typography>
+    </Stack>
+  );
+}
 
 export default function NewTransactionDialog({ open, branches, onClose, onCreated }) {
   const { user } = useAuth();
@@ -42,7 +51,8 @@ export default function NewTransactionDialog({ open, branches, onClose, onCreate
 
   const set = (key) => (e) => setForm((f) => ({ ...f, [key]: e.target.value }));
 
-  const submit = async () => {
+  const submit = async (e) => {
+    e?.preventDefault();
     setBusy(true);
     setError(null);
     try {
@@ -59,11 +69,16 @@ export default function NewTransactionDialog({ open, branches, onClose, onCreate
     }
   };
 
+  const valid = !!form.branchId && Number(form.amount) > 0;
+
   return (
-    <Dialog open={open} onClose={onClose} fullWidth maxWidth="sm">
+    <Dialog open={open} onClose={onClose} fullWidth maxWidth="sm" slotProps={{ paper: { component: 'form', onSubmit: submit, noValidate: true } }}>
       <DialogTitle>Yeni işlem</DialogTitle>
       <DialogContent>
-        <Stack spacing={2} sx={{ mt: 1 }}>
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 2.5 }}>
+          İşlem onaya gönderilir; yetkili bir yönetici onaylayana kadar beklemede kalır.
+        </Typography>
+        <Stack spacing={2.5}>
           {error && <Alert severity="error">{errorMessage(error)}</Alert>}
           <TextField select label="Şube" value={form.branchId} onChange={set('branchId')} disabled={!!user.branchId}
             helperText={user.branchId ? 'Hesabınız bu şubeye bağlı' : undefined}>
@@ -74,24 +89,32 @@ export default function NewTransactionDialog({ open, branches, onClose, onCreate
               {Object.entries(TYPES).map(([k, v]) => <MenuItem key={k} value={k}>{v}</MenuItem>)}
             </TextField>
             <TextField label="Tutar" type="number" value={form.amount} onChange={set('amount')} sx={{ flex: 1 }}
-              slotProps={{ htmlInput: { min: 0.01, step: 0.01 } }} />
-            <TextField select label="Para birimi" value={form.currency} onChange={set('currency')} sx={{ width: { sm: 120 } }}>
+              slotProps={{ htmlInput: { min: 0.01, step: 0.01, inputMode: 'decimal' } }} />
+            <TextField select label="Para birimi" value={form.currency} onChange={set('currency')} sx={{ width: { sm: 130 } }}>
               {CURRENCIES.map((c) => <MenuItem key={c} value={c}>{c}</MenuItem>)}
             </TextField>
           </Stack>
           <TextField label="Karşı taraf" value={form.counterpartyName} onChange={set('counterpartyName')} slotProps={{ htmlInput: { maxLength: 200 } }} />
-          <TextField label="Açıklama" value={form.description} onChange={set('description')} multiline minRows={2} slotProps={{ htmlInput: { maxLength: 500 } }} />
+          <TextField label="Açıklama" value={form.description} onChange={set('description')} multiline minRows={2}
+            helperText="İsteğe bağlı" slotProps={{ htmlInput: { maxLength: 500 } }} />
           {quote && (
-            <Typography variant="body2" color="text.secondary">
-              Ücret: <b>{money(quote.fee, quote.currency)}</b> · Net: <b>{money(quote.netAmount, quote.currency)}</b>
-              {!quote.feeRuleId && ' (bu tür için ücret kuralı yok)'}
-            </Typography>
+            <Box sx={{ px: 2, py: 1.25, borderRadius: 2, border: 1, borderColor: 'divider', bgcolor: 'background.default' }} aria-live="polite">
+              <QuoteRow label="Tutar" value={money(quote.amount, quote.currency)} />
+              <QuoteRow label="İşlem ücreti" value={money(quote.fee, quote.currency)} />
+              <Divider sx={{ my: 0.75 }} />
+              <QuoteRow label="Net tutar" value={money(quote.netAmount, quote.currency)} strong />
+              {!quote.feeRuleId && (
+                <Typography variant="caption" color="text.secondary" component="p" sx={{ mt: 0.5 }}>
+                  Bu işlem türü için tanımlı ücret kuralı yok.
+                </Typography>
+              )}
+            </Box>
           )}
         </Stack>
       </DialogContent>
       <DialogActions>
-        <Button onClick={onClose}>Vazgeç</Button>
-        <Button variant="contained" onClick={submit} disabled={busy || !form.branchId || !(Number(form.amount) > 0)}>Oluştur</Button>
+        <Button variant="outlined" color="inherit" onClick={onClose}>Vazgeç</Button>
+        <Button type="submit" variant="contained" loading={busy} disabled={!valid}>Oluştur</Button>
       </DialogActions>
     </Dialog>
   );
