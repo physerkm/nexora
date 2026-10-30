@@ -15,11 +15,20 @@ export function NotifyProvider({ children }) {
         key={message?.key}
         open={!!message}
         autoHideDuration={5000}
-        onClose={() => setMessage(null)}
+        onClose={(_, reason) => reason !== 'clickaway' && setMessage(null)}
         anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
       >
         {message ? (
-          <Alert severity={message.severity} variant="filled" onClose={() => setMessage(null)}>
+          <Alert
+            severity={message.severity}
+            onClose={() => setMessage(null)}
+            sx={{
+              minWidth: 300,
+              alignItems: 'center',
+              bgcolor: 'background.paper',
+              boxShadow: '0 12px 32px -12px rgba(16,24,40,0.3), 0 4px 8px -4px rgba(16,24,40,0.1)',
+            }}
+          >
             {message.text}
           </Alert>
         ) : undefined}
