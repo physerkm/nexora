@@ -1,17 +1,21 @@
-import { Box, CircularProgress } from '@mui/material';
+import { lazy } from 'react';
+import { CircularProgress, Stack } from '@mui/material';
 import { Navigate, Route, Routes } from 'react-router-dom';
 import { useAuth } from './auth/AuthContext';
 import Layout from './components/Layout';
+import { BrandMark } from './components/Brand';
 import LoginPage from './pages/LoginPage';
-import DashboardPage from './pages/DashboardPage';
-import TransactionsPage from './pages/TransactionsPage';
-import BranchesPage from './pages/BranchesPage';
-import UsersPage from './pages/UsersPage';
-import FeeRulesPage from './pages/FeeRulesPage';
-import AuditLogsPage from './pages/AuditLogsPage';
-import TenantsPage from './pages/TenantsPage';
-import SettingsPage from './pages/SettingsPage';
 import { ForgotPasswordPage, ResetPasswordPage } from './pages/PasswordResetPages';
+
+// Signed-in pages load on first visit, so the sign-in screen does not wait for charts and data grids.
+const DashboardPage = lazy(() => import('./pages/DashboardPage'));
+const TransactionsPage = lazy(() => import('./pages/TransactionsPage'));
+const BranchesPage = lazy(() => import('./pages/BranchesPage'));
+const UsersPage = lazy(() => import('./pages/UsersPage'));
+const FeeRulesPage = lazy(() => import('./pages/FeeRulesPage'));
+const AuditLogsPage = lazy(() => import('./pages/AuditLogsPage'));
+const TenantsPage = lazy(() => import('./pages/TenantsPage'));
+const SettingsPage = lazy(() => import('./pages/SettingsPage'));
 
 function Guard({ policy, children }) {
   const { can } = useAuth();
@@ -23,9 +27,10 @@ export default function App() {
 
   if (loading) {
     return (
-      <Box sx={{ display: 'grid', placeItems: 'center', height: '100vh' }}>
-        <CircularProgress />
-      </Box>
+      <Stack spacing={3} sx={{ alignItems: 'center', justifyContent: 'center', height: '100vh', bgcolor: 'background.default' }}>
+        <BrandMark size={40} />
+        <CircularProgress size={20} thickness={5} aria-label="Yükleniyor" />
+      </Stack>
     );
   }
 
