@@ -58,8 +58,14 @@ export function initials(name) {
   return ((parts[0]?.[0] ?? '') + (parts.length > 1 ? parts.at(-1)[0] : '')).toLocaleUpperCase('tr-TR') || '?';
 }
 
+// Codes the interface explains in its own words instead of showing the API's (English) message.
+const MESSAGES = {
+  demo_read_only: 'Bu bir demo: değişiklik yapılamaz. Her şeyi inceleyebilirsiniz.',
+};
+
 export function errorMessage(error) {
   if (!error) return '';
+  if (MESSAGES[error.code]) return MESSAGES[error.code];
   if (error.errors) {
     return Object.values(error.errors).flat().join(' ');
   }

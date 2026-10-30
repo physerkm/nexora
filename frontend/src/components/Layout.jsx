@@ -17,9 +17,11 @@ import DarkIcon from '@mui/icons-material/DarkModeOutlined';
 import LightIcon from '@mui/icons-material/LightModeOutlined';
 import LogoutIcon from '@mui/icons-material/LogoutRounded';
 import UnfoldIcon from '@mui/icons-material/UnfoldMoreRounded';
+import PreviewIcon from '@mui/icons-material/VisibilityOutlined';
 import { useAuth } from '../auth/AuthContext';
 import { api } from '../api/client';
 import { initials, ROLES } from '../utils/format';
+import { tint } from '../theme';
 import { Logo } from './Brand';
 
 const DRAWER_WIDTH = 252;
@@ -226,6 +228,27 @@ export default function Layout() {
             backdropFilter: 'saturate(180%) blur(8px)',
           }}
         >
+          {user.readOnly && (
+            <Stack
+              role="status"
+              direction="row"
+              spacing={1}
+              sx={(t) => ({
+                px: { xs: 2, sm: 3, lg: 4 },
+                py: 0.75,
+                alignItems: 'center',
+                color: 'primary.main',
+                bgcolor: tint(t, 'primary', 0.08),
+                borderBottom: 1,
+                borderColor: 'divider',
+              })}
+            >
+              <PreviewIcon sx={{ fontSize: 16 }} />
+              <Typography variant="caption" sx={{ color: 'text.primary' }}>
+                <b>Demo modu:</b> Her şeyi inceleyebilirsiniz; değişiklikler kapalı.
+              </Typography>
+            </Stack>
+          )}
           <Toolbar sx={{ gap: 1.5, minHeight: { xs: 60 }, px: { xs: 2, sm: 3, lg: 4 } }}>
             {!desktop && (
               <IconButton edge="start" onClick={() => setMobileOpen(true)} aria-label="Menü">

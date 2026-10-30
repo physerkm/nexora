@@ -4,6 +4,7 @@ import { setupServer } from 'msw/node';
 // Default handlers describe a signed-out visitor; tests add what they need with server.use(...).
 export const server = setupServer(
   http.post('/api/v1/auth/refresh', () => problem(401, 'refresh_invalid')),
+  http.get('/api/v1/demo', () => HttpResponse.json({ enabled: false })),
 );
 
 export const ids = {
