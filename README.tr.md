@@ -417,8 +417,9 @@ curl -s localhost:8080/api/v1/transactions -H "Authorization: Bearer $TOKEN" \
 | `Jwt:AccessTokenMinutes` / `RefreshTokenDays` | 15 / 7 | |
 | `Redis:ConnectionString` | boş | Boşsa bellek içi cache kullanılır |
 | `Database:InitializeOnStartup` / `MigrateOnStartup` | true / false | Production'da migration `--migrate` ile ayrı çalıştırılır |
-| `Bootstrap:PlatformAdminEmail/Password` | boş | İlk platform yöneticisi (yalnızca hiç yoksa oluşturulur) |
-| `Seed:DemoData` | false | Veritabanı boşsa demo şirketleri yükler |
+| `Bootstrap:PlatformAdminEmail/Password` | boş | Platform yöneticisi (bu e-postayla hesap yoksa oluşturulur; parola yalnızca ilk kez kullanılır) |
+| `Seed:DemoData` | false | Veritabanı boşsa demo şirketleri ve demo platform yöneticisini yükler |
+| `Demo:Enabled` / `Demo:OwnerEmails` | false / boş | Herkese açık demo: `OwnerEmails` dışındaki hesaplar salt okunur |
 | `Transactions:PendingExpiryHours` | 72 | Bekleyen işlemin süresinin dolması |
 | `BackgroundJobs:*` | etkin | Outbox ve bakım işlerinin aralıkları |
 | `RateLimiting:*` | | Limitler |

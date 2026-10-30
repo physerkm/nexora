@@ -49,6 +49,9 @@ services:
       Bootstrap__PlatformAdminEmail: ${PLATFORM_ADMIN_EMAIL:-admin@nexora.io}
       Bootstrap__PlatformAdminPassword: ${PLATFORM_ADMIN_PASSWORD:-Nexora#2026}
       Seed__DemoData: ${SEED_DEMO_DATA:-true}
+      # Public demo: visitors can look but not change anything; DEMO_OWNER_EMAILS keep full access.
+      Demo__Enabled: ${DEMO_ENABLED:-false}
+      Demo__OwnerEmails: ${DEMO_OWNER_EMAILS:-}
       Database__InitializeOnStartup: "false"
       # Requests reach the API through the web container's nginx (see docs/deployment.md).
       ReverseProxy__ForwardLimit: "1"
