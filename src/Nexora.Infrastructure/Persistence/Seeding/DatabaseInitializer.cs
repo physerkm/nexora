@@ -69,7 +69,9 @@ public sealed class DatabaseInitializer(
             return;
         }
 
-        if ((await users.GetUsersInRoleAsync(Roles.PlatformAdmin)).Count > 0 || await users.FindByEmailAsync(email) is not null)
+        // Created once per address and never touched again (the password in the configuration is only the first one).
+        // A new address adds an admin to an existing database, e.g. the owner's own account on a demo server.
+        if (await users.FindByEmailAsync(email) is not null)
         {
             return;
         }
