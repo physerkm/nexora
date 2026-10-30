@@ -11,6 +11,9 @@ public sealed class DemoDataSeeder(NexoraDbContext db, UserManager<AppUser> user
 {
     public const string DemoPassword = "Nexora#2026";
 
+    /// <summary>The platform admin offered on the demo sign-in page (read-only when Demo:Enabled is on).</summary>
+    public const string DemoPlatformAdminEmail = "admin@nexora.io";
+
     private sealed record TenantSeed(string Name, string Slug, (string Code, string Name, string City)[] Branches);
 
     private static readonly TenantSeed[] Tenants =
@@ -31,6 +34,8 @@ public sealed class DemoDataSeeder(NexoraDbContext db, UserManager<AppUser> user
     {
         var random = new Random(2026);
         var now = clock.GetUtcNow();
+
+        await EnsureDemoPlatformAdminAsync();
 
         foreach (var seed in Tenants)
         {
@@ -94,6 +99,32 @@ public sealed class DemoDataSeeder(NexoraDbContext db, UserManager<AppUser> user
 
             logger.LogInformation("Seeded demo tenant {Tenant} with {Count} transactions", seed.Slug, transactionsPerTenant);
         }
+    }
+
+    // Locally the bootstrap admin already uses this address; on a demo server the bootstrap admin is the owner's own account.
+    private async Task EnsureDemoPlatformAdminAsync()
+    {
+        if (await users.FindByEmailAsync(DemoPlatformAdminEmail) is not null)
+        {
+            return;
+        }
+
+        var admin = new AppUser
+        {
+            Email = DemoPlatformAdminEmail,
+            UserName = DemoPlatformAdminEmail,
+            FullName = "Demo Platform Yöneticisi",
+            EmailConfirmed = true,
+            CreatedAt = clock.GetUtcNow(),
+        };
+
+        var result = await users.CreateAsync(admin, DemoPassword);
+        if (!result.Succeeded)
+        {
+            throw new InvalidOperationException(string.Join(" ", result.Errors.Select(e => e.Description)));
+        }
+
+        await users.AddToRoleAsync(admin, Roles.PlatformAdmin);
     }
 
     private async Task<AppUser> CreateUserAsync(Tenant tenant, Guid? branchId, string email, string fullName, string role)

@@ -19,6 +19,7 @@ public sealed class AuthService(
     SessionValidator sessions,
     IOptions<JwtOptions> jwtOptions,
     IOptions<PasswordResetOptions> resetOptions,
+    IOptions<DemoOptions> demoOptions,
     IEmailQueue emails,
     TimeProvider clock,
     AuditTrail audit,
@@ -29,6 +30,7 @@ public sealed class AuthService(
     private static readonly TimeSpan ResetRequestInterval = TimeSpan.FromMinutes(1);
     private readonly JwtOptions _jwt = jwtOptions.Value;
     private readonly PasswordResetOptions _reset = resetOptions.Value;
+    private readonly DemoOptions _demo = demoOptions.Value;
 
     public async Task<AuthResponse> LoginAsync(LoginRequest request, CancellationToken ct)
     {
@@ -49,7 +51,12 @@ public sealed class AuthService(
 
         if (!await users.CheckPasswordAsync(user, request.Password))
         {
-            await users.AccessFailedAsync(user);
+            // Demo accounts are shared and their password is public: locking them would only lock visitors out.
+            if (!_demo.IsReadOnly(user.Email))
+            {
+                await users.AccessFailedAsync(user);
+            }
+
             audit.Record("auth.login_failed", "User", user.Id, new { reason = "bad_password" }, user.TenantId, user.Id, user.Email);
             await db.SaveChangesAsync(ct);
             logger.LogWarning("Failed sign-in for user {UserId}", user.Id);
@@ -329,6 +336,11 @@ public sealed class AuthService(
 
     private async Task<string?> ResetSkipReasonAsync(AppUser user, DateTimeOffset now, CancellationToken ct)
     {
+        if (_demo.IsReadOnly(user.Email))
+        {
+            return "demo_account";
+        }
+
         try
         {
             await EnsureCanSignInAsync(user, ct);
@@ -374,6 +386,7 @@ public sealed class AuthService(
             ? await db.Tenants.AsNoTracking().Where(t => t.Id == tenantId).Select(t => t.Name).FirstOrDefaultAsync(ct)
             : null;
 
-        return new UserProfileDto(user.Id, user.Email!, user.FullName, roles.ToArray(), user.TenantId, tenantName, user.BranchId);
+        return new UserProfileDto(user.Id, user.Email!, user.FullName, roles.ToArray(), user.TenantId, tenantName, user.BranchId,
+            _demo.IsReadOnly(user.Email));
     }
 }

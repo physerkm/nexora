@@ -139,3 +139,29 @@ EMAIL_FROM=no-reply@example.com
 - E-postadaki bağlantının adresi `PasswordReset:PublicUrl` ayarından gelir. `docker-compose.prod.yml` bunu `https://<DOMAIN>` yapar, `docker-compose.yml` tek başına `PUBLIC_URL` değerini (varsayılan `http://localhost:3000`) kullanır.
 - E-postalar arka planda, bellekteki bir kuyruktan gönderilir. API yeniden başlarken kuyrukta bekleyen bir e-posta kaybolabilir; kullanıcı bağlantıyı tekrar isteyebilir.
 - Gönderilen e-postaların spam klasörüne düşmemesi için gönderen alan adında SPF ve DKIM kayıtlarını tanımlayın (SMTP sağlayıcınız bunları nasıl ekleyeceğinizi gösterir).
+
+## Herkese açık demo
+
+Demo modunda ziyaretçiler giriş ekranındaki demo hesaplarıyla her şeye bakabilir ama hiçbir şeyi değiştiremez.
+Değişiklik istekleri (işlem oluşturma ve onaylama, kullanıcı ve ayar düzenleme, parola değiştirme, "her yerden çıkış")
+API tarafından `403 demo_read_only` ile reddedilir; arayüzü atlatmak işe yaramaz.
+
+- Demo hesapları yanlış parola denemelerinde kilitlenmez ve onlara parola sıfırlama e-postası gönderilmez.
+- `DEMO_OWNER_EMAILS` içindeki hesaplar (virgülle ayrılır) kısıtlamadan etkilenmez: aynı sitede tam yetkiyle çalışırsınız.
+- Giriş ekranındaki demo düğmeleri yalnızca demo modunda (ve yerel geliştirmede) görünür.
+
+Sunucudaki `.env` için örnek:
+
+```
+SEED_DEMO_DATA=true
+DEMO_ENABLED=true
+# Kendi hesabınız: demo verisindeki adreslerden farklı olmalı, parolası uzun ve tahmin edilemez olmalı.
+PLATFORM_ADMIN_EMAIL=siz@ornek.com
+PLATFORM_ADMIN_PASSWORD=<uzun-rastgele-parola>
+DEMO_OWNER_EMAILS=siz@ornek.com
+```
+
+`PLATFORM_ADMIN_EMAIL` ile verilen hesap yoksa açılışta oluşturulur (var olan bir veritabanına da eklenir).
+Ziyaretçilerin kullandığı `admin@nexora.io` platform hesabı demo verisiyle birlikte gelir.
+
+> Demo verisi yüklü bir sunucuyu demo modu kapalıyken herkese açmayın: demo hesaplarının parolası herkesin bildiği `Nexora#2026`'dır.

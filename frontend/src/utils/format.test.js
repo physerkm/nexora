@@ -18,4 +18,9 @@ describe('format', () => {
     expect(errorMessage(new Error('Sunucuya ulaşılamadı'))).toBe('Sunucuya ulaşılamadı');
     expect(errorMessage(null)).toBe('');
   });
+
+  it('explains a change refused by the public demo in Turkish', () => {
+    expect(errorMessage({ code: 'demo_read_only', message: 'This is a read-only demo: changes are disabled.' }))
+      .toBe('Bu bir demo: değişiklik yapılamaz. Her şeyi inceleyebilirsiniz.');
+  });
 });
